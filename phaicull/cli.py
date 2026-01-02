@@ -171,8 +171,11 @@ def process_photos(args):
     """Process photos based on command-line arguments."""
     
     # Validate input directory
-    if not os.path.isdir(args.input_dir):
+    if not os.path.exists(args.input_dir):
         print(f"Error: Input directory '{args.input_dir}' does not exist", file=sys.stderr)
+        return 1
+    if not os.path.isdir(args.input_dir):
+        print(f"Error: '{args.input_dir}' is not a directory", file=sys.stderr)
         return 1
     
     # Validate output directory for copy/move actions
@@ -283,7 +286,9 @@ def process_photos(args):
             dest_path = os.path.join(args.output, rel_path)
             
             # Create destination directory
-            os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+            dest_dir = os.path.dirname(dest_path)
+            if dest_dir:  # Only create if there's a directory component
+                os.makedirs(dest_dir, exist_ok=True)
             
             # Copy or move
             if args.action == 'copy':

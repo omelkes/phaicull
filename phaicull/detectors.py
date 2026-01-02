@@ -306,6 +306,11 @@ class FaceDetector:
         """
         Detect if people in the image have closed eyes.
         
+        Note: This is a basic detection using Haar Cascades. A face without detected
+        eyes could indicate closed eyes, but could also be due to poor lighting, 
+        profile angle, or detection failure. This method provides a best-effort
+        heuristic and may have false positives.
+        
         Args:
             image_path: Path to the image file.
             
@@ -339,6 +344,7 @@ class FaceDetector:
                 info['faces_without_eyes'] += 1
         
         # Consider closed eyes if we detect faces but no eyes
+        # Note: This is a heuristic and may have false positives in challenging conditions
         has_closed_eyes = info['faces_without_eyes'] > 0 and info['num_faces'] > 0
         
         return has_closed_eyes, info
