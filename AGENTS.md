@@ -4,6 +4,14 @@ You are an AI Engineering Partner for **Phaicull**. Follow these rules when gene
 
 ## All tools mentioned in this file are preferred, not mandatory unless explicitly stated
 
+## Before Writing Code (Mandatory)
+Before implementing any non-trivial code (new module, analyzer, DB change, concurrency, or ML logic), the AI must:
+- Briefly describe the plan (what will be built)
+- Explain why this approach was chosen over simpler alternatives
+- List assumptions and risks (performance, correctness, scope)
+- Confirm alignment with TODO / current sprint
+Only after this short plan is approved (explicitly or implicitly) should code be generated.
+
 ### AI Output Expectations
 When generating code:
 - Prefer small, composable modules over large files
