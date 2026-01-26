@@ -4,7 +4,23 @@ You are an AI Engineering Partner for **Phaicull**. Follow these rules when gene
 
 ## All tools mentioned in this file are preferred, not mandatory unless explicitly stated
 
-## Before Writing Code (Mandatory)
+## 🛠 Workflow Protocols
+
+### 1. Atomic Tasks (One Thing at a Time) - Mandatory
+To ensure code quality, maintainability, and clear version control:
+- **Single-Task Focus:** Do not implement multiple tasks from the `TODO.md` in a single response. 
+- **Discrete Commits:** Every code generation must focus on one specific feature, fix, or module. 
+- **No Monolithic Blobs:** Avoid "multi-task" outputs. If a task is too large, break it down into smaller sub-tasks before writing code.
+- **Verification:** Each task must be considered "done" only when it is implemented, explained, and ready for basic testing.
+
+### 2. Living Documentation - Mandatory
+The code and the documentation must never drift apart:
+- **Synchronized Updates:** After every task or significant change, you must update the `TODO.md` (marking tasks as done) and any relevant sections of the `README.md`, `AGENTS.md` or `docs/`.
+- **Discovery Logging:** If, while coding, you discover a new requirement, a bug, or a necessary architectural change, add it to the `TODO.md` immediately.
+- **State Transparency:** At the end of a response, briefly state the "Current Project State" if the previous task changed the roadmap.
+
+
+### Before Writing Code - Mandatory
 Before implementing any non-trivial code (new module, analyzer, DB change, concurrency, or ML logic), the AI must:
 - Briefly describe the plan (what will be built)
 - Explain why this approach was chosen over simpler alternatives
@@ -12,7 +28,7 @@ Before implementing any non-trivial code (new module, analyzer, DB change, concu
 - Confirm alignment with TODO / current sprint
 Only after this short plan is approved (explicitly or implicitly) should code be generated.
 
-### AI Output Expectations
+## AI Output Expectations
 When generating code:
 - Prefer small, composable modules over large files
 - Show the public interface first (class/method signatures)
@@ -170,7 +186,7 @@ This structure is the intended direction; minor deviations are acceptable if jus
 ```text
 /phaicull
 ├── .models/              # Local storage for ONNX/PyTorch weights (git-ignored)
-├── .projects/            # Local storage for user projects, one database per project (git-ignored)
+├── .projects/            # Local storage for projects paths (git-ignored)
 ├── core/
 │   ├── analyzers/        # Individual modules
 │   │   ├── base.py       # Abstract Base Class
@@ -183,11 +199,27 @@ This structure is the intended direction; minor deviations are acceptable if jus
 │   │   └── dao.py        # Data Access Objects
 │   ├── models/           # Pydantic schemas (JSON/DB models)
 │   ├── utils/            # Image loading, EXIF, and thumbnail helpers
-│   └── cli.py            # Main Typer/Click entry point
+│   └── phaicull.py       # Main Typer/Click entry point
 ├── ui-macos/             # SwiftUI App
 ├── ui-windows/           # .NET 8 / WinUI 3 App
 ├── tests/                # Pytest suite with synthetic images
 ├── pyproject.toml        # Managed via 'uv'
 ├── agents.md             # The instructions you just wrote
 └── README.md
+```
+
+
+#### 📂 Phaicull Project Directory Structure
+
+This structure is created inside each user photo directory when `phaicull init` is run.
+It is visible to the user so they can back it up, move or delete it as needed.
+
+```text
+/photo-directory         # User's photo directory (like ~/Pictures/FamilyTrip, DCIM, etc.)
+├── phaicull/            # visible Phaicull project directory
+│   ├── thumbs/          # Cached thumbnails 
+│   └── phaicull.db      # SQLite database
+├── img001.jpg           # User photos ...
+├── img002.jpg
+├── ...
 ```

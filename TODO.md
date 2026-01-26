@@ -60,7 +60,7 @@ Try and decide the best result
     - [ ] Implement the "Heuristic Scorer" (Weights: Focus + Eyes Open + Smile).
     - [ ] Implement the "Aesthetic Scorer" (Small MLP/Linear model on top of CLIP).
 - [ ] **Face Analysis:** Integrate MediaPipe for "Face Mesh" to detect:
-    - [ ]  Eye closure (EAR - Eye Aspect Ratio).
+    - [ ] Eye closure (EAR - Eye Aspect Ratio).
     - [ ] Smile detection (Mouth curvature).
     - [ ] Expression signals (eye openness, mouth state – experimental)
 - [ ] **Model Export:** Convert models to ONNX format for high-speed cross-platform execution (CoreML on Mac, DirectML/ONNX on Windows).
