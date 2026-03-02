@@ -80,3 +80,40 @@
 - Use `logger.add(sys.stderr, format="...")` for interactive CLI.
 - For UI subprocess: add a sink with `serialize=True` or a custom serializer that emits JSON lines with `event`, `percent`, `current`, `message`, etc.
 - Define a **progress event schema** (to be documented in the Progress Reporting Contract in Sprint 1).
+
+---
+
+## DEC-003: CLI Framework — Typer vs Click
+
+**Status:** Decided  
+**Date:** 2025-03-02  
+**TODO:** Sprint 0, Section 1 — Decide framework for CLI
+
+### Decision
+
+**Use `typer`** for the CLI entry point.
+
+### Alternatives Considered
+
+| Option | Pros | Cons |
+|--------|------|------|
+| **typer** | Type-hint driven, built on Click, Pydantic integration, less boilerplate | Extra dependency (includes Click) |
+| **click** | Mature, flexible, widely used | More decorator/boilerplate, no native type-hint inference |
+
+### Rationale
+
+1. **AGENTS.md alignment:** Technical Standards specify "Use **type hints** everywhere" and "**pydantic v2** for all data validation." Typer infers options and arguments from type hints, reducing repetition and keeping the CLI consistent with the rest of the codebase.
+
+2. **TODO preference:** The TODO explicitly prefers Typer.
+
+3. **Pydantic integration:** Typer supports Pydantic models for complex validation. Phaicull uses Pydantic for DB models and JSON output; CLI args can reuse or mirror these models.
+
+4. **Click compatibility:** Typer is built on Click. We get Click's ecosystem (e.g., `rich` for output) with a cleaner API.
+
+5. **Entry point:** CLI lives at `core/cli.py` per AGENTS.md; Typer's `typer.Typer()` app pattern fits this structure.
+
+### Implementation Notes
+
+- Add `typer` to `pyproject.toml` dependencies.
+- Entry point: `core/cli.py` with `app = typer.Typer()`.
+- Use `rich` for terminal output (per TODO Section 5).

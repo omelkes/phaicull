@@ -5,7 +5,7 @@
 ### 1. Decisions First (must be resolved before ANY code is written)
 - [x] **Research and Decide:** SQLite via raw `sqlite3` or `SQLAlchemy` (document choice in docs/).
 - [x] **Decide tool for structured logging.** The UI must be able to parse the log stream for real-time progress. Consider `loguru` for its structured logging and ease of use.
-- [ ] **Decide framework for CLI.** Should we use **`typer`** (preferred) or `click`.
+- [x] **Decide framework for CLI.** Should we use **`typer`** (preferred) or `click`.
 - [ ] **Decide Migration Strategy:** Decide how SQLite schema versioning and migrations will be handled (e.g., custom lightweight script vs. Alembic).
 - [ ] **Decision outputs:** All decisions above must produce a written record in `docs/decisions.md`.
 - [ ] **Architecture decision record (ADR-001):**
