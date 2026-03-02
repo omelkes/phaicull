@@ -41,3 +41,42 @@
 - Use `sqlite3` with `PRAGMA journal_mode=WAL;` on every connection.
 - All SQL in `core/database/dao.py`; no raw SQL elsewhere.
 - Schema versioning via a `schema_version` table and a lightweight migration script (to be decided in a separate decision).
+
+---
+
+## DEC-002: Structured Logging — Tool for UI-Parseable Log Stream
+
+**Status:** Decided  
+**Date:** 2025-03-02  
+**TODO:** Sprint 0, Section 1 — Decide tool for structured logging
+
+### Decision
+
+**Use `loguru`** for structured logging. Configure a JSON sink for stdout when the UI needs to parse progress; use human-readable format for interactive CLI use.
+
+### Alternatives Considered
+
+| Option | Pros | Cons |
+|--------|------|------|
+| **loguru** | Simple API, `serialize=True` for JSON, easy custom sinks, drop-in friendly | Extra dependency |
+| **structlog** | Designed for structured/JSON output, processors, context binding | Steeper learning curve, more config for simple cases |
+| **stdlib `logging` + custom JSON formatter** | No extra dependency | Boilerplate, no built-in serialization, harder to maintain |
+
+### Rationale
+
+1. **UI parsing requirement:** The UI must parse the log stream for real-time progress (e.g., `{"event": "progress", "percent": 42, "current": "img001.jpg"}`). Loguru supports `serialize=True` to emit JSON lines, or we can add a custom sink that emits structured progress events.
+
+2. **Simplicity:** Loguru has a minimal API (`logger.info(...)`) and sensible defaults. Less setup than structlog for our use case.
+
+3. **Dual output:** We can route to multiple sinks — human-readable for terminal, JSON for UI subprocess consumption — without duplicating logic.
+
+4. **TODO alignment:** The TODO explicitly recommends considering loguru; it fits the requirement.
+
+5. **Maturity:** Loguru is widely used, well-maintained, and compatible with Python 3.12+.
+
+### Implementation Notes
+
+- Add `loguru` to `pyproject.toml` dependencies.
+- Use `logger.add(sys.stderr, format="...")` for interactive CLI.
+- For UI subprocess: add a sink with `serialize=True` or a custom serializer that emits JSON lines with `event`, `percent`, `current`, `message`, etc.
+- Define a **progress event schema** (to be documented in the Progress Reporting Contract in Sprint 1).
