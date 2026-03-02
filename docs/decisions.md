@@ -40,7 +40,7 @@
 
 - Use `sqlite3` with `PRAGMA journal_mode=WAL;` on every connection.
 - All SQL in `core/database/dao.py`; no raw SQL elsewhere.
-- Schema versioning via a `schema_version` table and a lightweight migration script (to be decided in a separate decision).
+- Schema versioning via a `schema_version` table and a custom lightweight migration script (see DEC-004).
 
 ---
 
@@ -117,3 +117,42 @@
 - Add `typer` to `pyproject.toml` dependencies.
 - Entry point: `core/cli.py` with `app = typer.Typer()`.
 - Use `rich` for terminal output (per TODO Section 5).
+
+---
+
+## DEC-004: Migration Strategy — Custom Script vs Alembic
+
+**Status:** Decided  
+**Date:** 2025-03-02  
+**TODO:** Sprint 0, Section 1 — Decide Migration Strategy
+
+### Decision
+
+**Use a custom lightweight migration script.** No Alembic. Migrations live as sequential SQL files in `core/database/migrations/`; a small Python module applies them and updates the `schema_version` table.
+
+### Alternatives Considered
+
+| Option | Pros | Cons |
+|--------|------|------|
+| **Custom lightweight script** | No extra dependency, works with raw sqlite3, full control, simple | Manual migration file creation |
+| **Alembic** | Mature, auto-generate migrations, version tracking | Tied to SQLAlchemy ecosystem, overkill for 4-table schema, AGENTS.md says avoid until schema stabilizes |
+| **Inline schema + Python migrations** | Single source of truth | Harder to review diffs, migrations mixed with app code |
+
+### Rationale
+
+1. **DEC-001 alignment:** We chose raw `sqlite3`. Alembic is typically used with SQLAlchemy; using it with raw SQL is possible but adds complexity and an extra dependency.
+
+2. **AGENTS.md:** "Avoid Alembic until schema stabilizes" — we are in Sprint 0; schema will evolve through Sprints 1–2.
+
+3. **Schema simplicity:** Four tables with straightforward changes. A script that runs `001_initial.sql`, `002_add_metrics.sql`, etc., is sufficient.
+
+4. **Transparency:** SQL migration files are easy to review, diff, and understand. No ORM/metadata layer.
+
+5. **Future flexibility:** If the schema grows complex, we can adopt Alembic later. The `schema_version` table and migration pattern will translate.
+
+### Implementation Notes
+
+- Create `core/database/migrations/` with numbered SQL files: `001_initial.sql`, `002_*.sql`, etc.
+- `schema_version` table: `(version TEXT PRIMARY KEY)` — stores current version (e.g., `"1"` or `"001"`).
+- Migration runner: `core/database/migrate.py` — on DB open, check `schema_version`, run any migrations with higher number, update `schema_version`.
+- Each migration file is idempotent where possible, or the runner ensures each runs only once.
