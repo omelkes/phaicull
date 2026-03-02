@@ -3,7 +3,7 @@
 ## 🏗 Sprint 0: Foundation
 
 ### 1. Decisions First (must be resolved before ANY code is written)
-- [ ] **Research and Decide:** SQLite via raw `sqlite3` or `SQLAlchemy` (document choice in docs/).
+- [x] **Research and Decide:** SQLite via raw `sqlite3` or `SQLAlchemy` (document choice in docs/).
 - [ ] **Decide tool for structured logging.** The UI must be able to parse the log stream for real-time progress. Consider `loguru` for its structured logging and ease of use.
 - [ ] **Decide framework for CLI.** Should we use **`typer`** (preferred) or `click`.
 - [ ] **Decide Migration Strategy:** Decide how SQLite schema versioning and migrations will be handled (e.g., custom lightweight script vs. Alembic).
