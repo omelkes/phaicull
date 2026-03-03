@@ -17,11 +17,11 @@
 ### 2. Environment & Structure
 - [x] **Environment:** Initialize Python 3.12 environment with `pyproject.toml`.
 - [x] **Structure:** Create correct directory structure (see AGENTS.md). Setup `.gitignore`.
-- [ ] **Directory initialization:** Create `.models/.gitkeep` and `.projects/.gitkeep` so git-ignored directories exist in the repo without committing real content.
+- [x] **Directory initialization:** Create `.models/.gitkeep` and `.projects/.gitkeep` so git-ignored directories exist in the repo without committing real content.
 
 ### 3. Database Foundation
-- [ ] **Persistence Scaffold:** Design & implement the base SQLite schema (Tables: `files`, `metrics`, `groups`, `projects`).
 - [ ] **Schema Versioning implementation:** Implement the chosen migration strategy. Include a `schema_version` table seeded with `v1` in the initial setup.
+- [ ] **Persistence Scaffold:** Design & implement the base SQLite schema (Tables: `files`, `metrics`, `groups`, `projects`).
 
 ### 4. Shared Utilities & Testing (Depends on DB)
 - [ ] **Test infrastructure:** Create `tests/conftest.py` with shared pytest fixtures: synthetic valid image, zero-byte file, non-image file, extreme aspect ratio image, and a temp SQLite DB factory.
