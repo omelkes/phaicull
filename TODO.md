@@ -20,7 +20,7 @@
 - [x] **Directory initialization:** Create `.models/.gitkeep` and `.projects/.gitkeep` so git-ignored directories exist in the repo without committing real content.
 
 ### 3. Database Foundation
-- [ ] **Schema Versioning implementation:** Implement the chosen migration strategy. Include a `schema_version` table seeded with `v1` in the initial setup.
+- [x] **Schema Versioning implementation:** Implement the chosen migration strategy. Include a `schema_version` table seeded with `v1` in the initial setup.
 - [ ] **Persistence Scaffold:** Design & implement the base SQLite schema (Tables: `files`, `metrics`, `groups`, `projects`).
 
 ### 4. Shared Utilities & Testing (Depends on DB)
