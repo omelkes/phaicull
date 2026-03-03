@@ -8,7 +8,7 @@
 - [x] **Decide framework for CLI.** Should we use **`typer`** (preferred) or `click`.
 - [x] **Decide Migration Strategy:** Decide how SQLite schema versioning and migrations will be handled (e.g., custom lightweight script vs. Alembic).
 - [x] **Decision outputs:** All decisions above must produce a written record in `docs/decisions.md`.
-- [ ] **Architecture decision record (ADR-001):**
+- [x] **Architecture decision record (ADR-001):**
   - CLI-first execution model
   - SQLite default DB
   - Offline-first, plugin-based AI

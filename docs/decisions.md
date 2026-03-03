@@ -11,6 +11,8 @@
 | DEC-003 | CLI framework | typer |
 | DEC-004 | Migration strategy | custom lightweight script |
 
+See [ADR-001](adr-001.md) for the full architecture decision record (CLI-first, SQLite, offline-first, UI contracts).
+
 ---
 
 ## DEC-001: SQLite Access — raw `sqlite3` vs SQLAlchemy
