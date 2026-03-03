@@ -2,6 +2,15 @@
 
 > Decisions made during development. Each entry documents the choice, alternatives, and rationale.
 
+## Summary (Sprint 0, Section 1)
+
+| ID | Topic | Decision |
+|----|-------|----------|
+| DEC-001 | SQLite access | raw `sqlite3` |
+| DEC-002 | Structured logging | loguru |
+| DEC-003 | CLI framework | typer |
+| DEC-004 | Migration strategy | custom lightweight script |
+
 ---
 
 ## DEC-001: SQLite Access — raw `sqlite3` vs SQLAlchemy
