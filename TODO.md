@@ -16,7 +16,7 @@
 
 ### 2. Environment & Structure
 - [x] **Environment:** Initialize Python 3.12 environment with `pyproject.toml`.
-- [ ] **Structure:** Create correct directory structure (see AGENTS.md). Setup `.gitignore`.
+- [x] **Structure:** Create correct directory structure (see AGENTS.md). Setup `.gitignore`.
 - [ ] **Directory initialization:** Create `.models/.gitkeep` and `.projects/.gitkeep` so git-ignored directories exist in the repo without committing real content.
 
 ### 3. Database Foundation
