@@ -167,3 +167,13 @@ See [ADR-001](adr-001.md) for the full architecture decision record (CLI-first, 
 - `schema_version` table: `(version TEXT PRIMARY KEY)` — stores current version (e.g., `"1"` or `"001"`).
 - Migration runner: `core/database/migrate.py` — on DB open, check `schema_version`, run any migrations with higher number, update `schema_version`.
 - Each migration file is idempotent where possible, or the runner ensures each runs only once.
+
+### Implemented (Sprint 0)
+
+- `core/database/migrations/001_initial.sql` — creates `schema_version` table with `(version, description, applied_at)`.
+- `core/database/migrate.py`:
+  - `migrate(db_path)` — applies pending migrations, enables WAL; returns current version.
+  - `get_schema_version(db_path)` — returns current version without running migrations.
+  - `get_applied_migrations(db_path)` — returns list of all applied migrations (version, description, applied_at) for audit.
+- **Description:** From migration file via `-- migration: <description>` or `-- description: <description>`; otherwise filename.
+- **History:** Each applied migration is appended to `schema_version` (no overwrite); full history enables recovery and verification.
