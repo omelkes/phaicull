@@ -4,10 +4,13 @@ Per DEC-004: custom lightweight migration strategy. Migrations live as
 sequential SQL files in core/database/migrations/. This module applies
 them and updates the schema_version table.
 
-The schema_version table stores a history of all applied migrations:
+The schema_version table has exactly three columns (no upgrades of legacy schemas):
 - version: migration id (e.g. "001")
 - description: from migration file (-- migration: ...) or filename
 - applied_at: when the migration was applied
+
+If the database has a different schema (e.g. missing columns), the application
+fails with PhaicullDatabaseError — the database is treated as corrupted or not Phaicull.
 """
 
 from __future__ import annotations
@@ -22,8 +25,15 @@ from loguru import logger
 MIGRATIONS_DIR = Path(__file__).resolve().parent / "migrations"
 WAL_PRAGMA = "PRAGMA journal_mode=WAL;"
 
+# Required columns for schema_version. No upgrade path; wrong schema → fail.
+SCHEMA_VERSION_COLUMNS = frozenset({"version", "description", "applied_at"})
+
 # First line matching this pattern provides the migration description.
 DESCRIPTION_PATTERN = re.compile(r"^\s*--\s*(?:migration|description):\s*(.+)$", re.IGNORECASE)
+
+
+class PhaicullDatabaseError(RuntimeError):
+    """Raised when the database is not a valid Phaicull DB (wrong or corrupted schema)."""
 
 
 def _enable_wal(conn: sqlite3.Connection) -> None:
@@ -40,24 +50,18 @@ def _get_schema_version_columns(conn: sqlite3.Connection) -> list[str]:
         return []
 
 
-def _upgrade_schema_version_table(conn: sqlite3.Connection) -> None:
-    """Upgrade old schema_version (version only) to new (version, description, applied_at)."""
+def _validate_schema_version_table(conn: sqlite3.Connection) -> None:
+    """Ensure schema_version table has exactly version, description, applied_at.
+    Raises PhaicullDatabaseError if the table exists but has a different schema.
+    """
     cols = _get_schema_version_columns(conn)
     if not cols:
         return
-    if "description" in cols and "applied_at" in cols:
-        return
-    # Old schema: version only. Add description and applied_at.
-    if "description" not in cols:
-        conn.execute("ALTER TABLE schema_version ADD COLUMN description TEXT")
-    if "applied_at" not in cols:
-        conn.execute("ALTER TABLE schema_version ADD COLUMN applied_at TEXT")
-    now = datetime.now(timezone.utc).isoformat()
-    conn.execute(
-        "UPDATE schema_version SET description = COALESCE(description, '001_initial.sql'), applied_at = COALESCE(applied_at, ?)",
-        (now,),
-    )
-    conn.commit()
+    if set(cols) != SCHEMA_VERSION_COLUMNS:
+        raise PhaicullDatabaseError(
+            "Database is corrupted or not a Phaicull database. "
+            "schema_version table has unexpected columns."
+        )
 
 
 def _get_current_version(conn: sqlite3.Connection) -> str | None:
@@ -112,7 +116,7 @@ def migrate(db_path: Path) -> str:
     conn.row_factory = sqlite3.Row
     try:
         _enable_wal(conn)
-        _upgrade_schema_version_table(conn)
+        _validate_schema_version_table(conn)
         current = _get_current_version(conn)
         migrations = _list_migrations()
 
@@ -142,14 +146,15 @@ def migrate(db_path: Path) -> str:
 
 def get_schema_version(db_path: Path) -> str | None:
     """Return the current schema version without running migrations.
-    Returns None if the database doesn't exist or schema_version is missing.
+    Returns None if the database doesn't exist or schema_version table is missing.
+    Raises PhaicullDatabaseError if schema_version exists but has wrong columns.
     """
     db_path = Path(db_path).resolve()
     if not db_path.exists():
         return None
     conn = sqlite3.connect(str(db_path))
     try:
-        _upgrade_schema_version_table(conn)
+        _validate_schema_version_table(conn)
         return _get_current_version(conn)
     finally:
         conn.close()
@@ -157,7 +162,8 @@ def get_schema_version(db_path: Path) -> str | None:
 
 def get_applied_migrations(db_path: Path) -> list[dict[str, str]]:
     """Return list of all applied migrations (version, description, applied_at).
-    Returns empty list if DB doesn't exist or schema_version is missing.
+    Returns empty list if DB doesn't exist or schema_version table is missing.
+    Raises PhaicullDatabaseError if schema_version exists but has wrong columns.
     """
     db_path = Path(db_path).resolve()
     if not db_path.exists():
@@ -165,26 +171,14 @@ def get_applied_migrations(db_path: Path) -> list[dict[str, str]]:
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
     try:
-        _upgrade_schema_version_table(conn)
-        cols = _get_schema_version_columns(conn)
-        if not cols:
+        _validate_schema_version_table(conn)
+        if not _get_schema_version_columns(conn):
             return []
         cursor = conn.execute(
             "SELECT version, description, applied_at FROM schema_version ORDER BY version"
         )
         rows = cursor.fetchall()
-        result: list[dict[str, str]] = []
-        for row in rows:
-            d = dict(row)
-            # Handle old schema: may have only version
-            result.append(
-                {
-                    "version": str(d.get("version", "")),
-                    "description": str(d.get("description", "")),
-                    "applied_at": str(d.get("applied_at", "")),
-                }
-            )
-        return result
+        return [dict(row) for row in rows]
     except sqlite3.OperationalError:
         return []
     finally:

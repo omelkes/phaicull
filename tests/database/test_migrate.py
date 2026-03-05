@@ -5,7 +5,12 @@ from pathlib import Path
 
 import pytest
 
-from core.database.migrate import get_applied_migrations, get_schema_version, migrate
+from core.database.migrate import (
+    PhaicullDatabaseError,
+    get_applied_migrations,
+    get_schema_version,
+    migrate,
+)
 
 
 def test_migrate_creates_db_and_schema_version(tmp_path: Path) -> None:
@@ -94,8 +99,8 @@ def test_get_applied_migrations_returns_empty_for_missing_db(tmp_path: Path) -> 
     assert get_applied_migrations(db_path) == []
 
 
-def test_upgrade_from_old_schema(tmp_path: Path) -> None:
-    """DB with old schema_version (version only) is upgraded to new schema."""
+def test_old_schema_version_fails_get_schema_version(tmp_path: Path) -> None:
+    """DB with old schema_version (version only) causes get_schema_version to raise."""
     db_path = tmp_path / "test.db"
     conn = sqlite3.connect(str(db_path))
     conn.execute("PRAGMA journal_mode=WAL")
@@ -104,11 +109,33 @@ def test_upgrade_from_old_schema(tmp_path: Path) -> None:
     conn.commit()
     conn.close()
 
-    # get_schema_version triggers upgrade
-    assert get_schema_version(db_path) == "001"
+    with pytest.raises(PhaicullDatabaseError, match="corrupted or not a Phaicull"):
+        get_schema_version(db_path)
 
-    applied = get_applied_migrations(db_path)
-    assert len(applied) == 1
-    assert applied[0]["version"] == "001"
-    assert applied[0]["description"] == "001_initial.sql"  # default when no custom desc
-    assert applied[0]["applied_at"]
+
+def test_old_schema_version_fails_get_applied_migrations(tmp_path: Path) -> None:
+    """DB with old schema_version (version only) causes get_applied_migrations to raise."""
+    db_path = tmp_path / "test.db"
+    conn = sqlite3.connect(str(db_path))
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("CREATE TABLE schema_version (version TEXT PRIMARY KEY)")
+    conn.execute("INSERT INTO schema_version (version) VALUES ('001')")
+    conn.commit()
+    conn.close()
+
+    with pytest.raises(PhaicullDatabaseError, match="corrupted or not a Phaicull"):
+        get_applied_migrations(db_path)
+
+
+def test_old_schema_version_fails_migrate(tmp_path: Path) -> None:
+    """DB with old schema_version (version only) causes migrate to raise."""
+    db_path = tmp_path / "test.db"
+    conn = sqlite3.connect(str(db_path))
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("CREATE TABLE schema_version (version TEXT PRIMARY KEY)")
+    conn.execute("INSERT INTO schema_version (version) VALUES ('001')")
+    conn.commit()
+    conn.close()
+
+    with pytest.raises(PhaicullDatabaseError, match="corrupted or not a Phaicull"):
+        migrate(db_path)
