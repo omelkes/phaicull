@@ -23,6 +23,7 @@ from pathlib import Path
 from loguru import logger
 
 MIGRATIONS_DIR = Path(__file__).resolve().parent / "migrations"
+REGISTRY_MIGRATIONS_DIR = Path(__file__).resolve().parent / "migrations_registry"
 WAL_PRAGMA = "PRAGMA journal_mode=WAL;"
 
 # Required columns for schema_version. No upgrade path; wrong schema → fail.
@@ -85,14 +86,14 @@ def _parse_description(path: Path) -> str:
     return path.name
 
 
-def _list_migrations() -> list[tuple[str, Path]]:
-    """Return sorted list of (version, path) for migration files.
+def _list_migrations(migrations_dir: Path) -> list[tuple[str, Path]]:
+    """Return sorted list of (version, path) for migration files in migrations_dir.
     Version is extracted from filename prefix, e.g. 001_initial.sql -> 001.
     """
-    if not MIGRATIONS_DIR.exists():
+    if not migrations_dir.exists():
         return []
     migrations: list[tuple[str, Path]] = []
-    for p in MIGRATIONS_DIR.glob("*.sql"):
+    for p in migrations_dir.glob("*.sql"):
         prefix = p.stem.split("_")[0]
         if prefix.isdigit():
             migrations.append((prefix, p))
@@ -100,15 +101,8 @@ def _list_migrations() -> list[tuple[str, Path]]:
     return migrations
 
 
-def migrate(db_path: Path) -> str:
-    """Apply pending migrations to the database at db_path.
-
-    Creates the database file if it doesn't exist. Enables WAL mode.
-    Runs migrations in order and appends each to schema_version (history).
-
-    Returns:
-        The current schema version after migration (e.g. "001" for v1).
-    """
+def _run_migrations(db_path: Path, migrations_dir: Path) -> str:
+    """Apply pending migrations from migrations_dir to db_path. Internal helper."""
     db_path = Path(db_path).resolve()
     db_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -118,7 +112,7 @@ def migrate(db_path: Path) -> str:
         _enable_wal(conn)
         _validate_schema_version_table(conn)
         current = _get_current_version(conn)
-        migrations = _list_migrations()
+        migrations = _list_migrations(migrations_dir)
 
         for version, path in migrations:
             if current is not None and version <= current:
@@ -142,6 +136,32 @@ def migrate(db_path: Path) -> str:
         return current
     finally:
         conn.close()
+
+
+def migrate(db_path: Path) -> str:
+    """Apply pending migrations to the project database at db_path.
+
+    Use for per-project DB at {project}/phaicull/phaicull.db. Creates the file
+    if it doesn't exist. Enables WAL mode. Runs migrations from migrations/.
+
+    Returns:
+        The current schema version after migration (e.g. "002").
+    """
+    return _run_migrations(db_path, MIGRATIONS_DIR)
+
+
+def migrate_registry(db_path: Path) -> str:
+    """Apply pending migrations to the registry database at db_path.
+
+    Use for the single registry DB in the Phaicull install dir (e.g.
+    .projects/registry.db) that holds the list of projects. Creates the file
+    if it doesn't exist. Enables WAL mode. Runs migrations from
+    migrations_registry/.
+
+    Returns:
+        The current schema version after migration (e.g. "001").
+    """
+    return _run_migrations(db_path, REGISTRY_MIGRATIONS_DIR)
 
 
 def get_schema_version(db_path: Path) -> str | None:

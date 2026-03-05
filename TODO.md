@@ -21,7 +21,8 @@
 
 ### 3. Database Foundation
 - [x] **Schema Versioning implementation:** Implement the chosen migration strategy. Include a `schema_version` table seeded with `v1` in the initial setup.
-- [ ] **Persistence Scaffold:** Design & implement the base SQLite schema (Tables: `files`, `metrics`, `groups`, `projects`).
+- [x] **Persistence Scaffold:** Design & implement the base SQLite schema (Tables: `files`, `metrics`, `groups`, `projects`).
+  - Project DB: `{project}/phaicull/phaicull.db` — tables `files`, `metrics`, `groups`. Registry DB: `.projects/registry.db` — table `projects`.
 
 ### 4. Shared Utilities & Testing (Depends on DB)
 - [ ] **Test infrastructure:** Create `tests/conftest.py` with shared pytest fixtures: synthetic valid image, zero-byte file, non-image file, extreme aspect ratio image, and a temp SQLite DB factory.
