@@ -10,18 +10,19 @@ from core.database.migrate import (
     get_applied_migrations,
     get_schema_version,
     migrate,
+    migrate_registry,
 )
 
 
 def test_migrate_creates_db_and_schema_version(tmp_path: Path) -> None:
-    """Fresh DB: migrate creates file, schema_version table, and seeds v1."""
+    """Fresh DB: migrate creates file, schema_version table, and applies all migrations."""
     db_path = tmp_path / "test.db"
     assert not db_path.exists()
 
     version = migrate(db_path)
 
     assert db_path.exists()
-    assert version == "001"
+    assert version == "002"
 
 
 def test_migrate_idempotent(tmp_path: Path) -> None:
@@ -30,7 +31,7 @@ def test_migrate_idempotent(tmp_path: Path) -> None:
     v1 = migrate(db_path)
     v2 = migrate(db_path)
 
-    assert v1 == v2 == "001"
+    assert v1 == v2 == "002"
 
 
 def test_get_schema_version_returns_none_for_missing_db(tmp_path: Path) -> None:
@@ -43,25 +44,25 @@ def test_get_schema_version_returns_version_after_migrate(tmp_path: Path) -> Non
     """get_schema_version returns current version after migrate."""
     db_path = tmp_path / "test.db"
     migrate(db_path)
-    assert get_schema_version(db_path) == "001"
+    assert get_schema_version(db_path) == "002"
 
 
 def test_schema_version_table_has_correct_structure(tmp_path: Path) -> None:
-    """schema_version table has version, description, applied_at and one row."""
+    """schema_version table has version, description, applied_at and migration history."""
     db_path = tmp_path / "test.db"
     migrate(db_path)
 
     conn = sqlite3.connect(str(db_path))
     cursor = conn.execute("PRAGMA table_info(schema_version)")
     columns = {row[1]: row[2] for row in cursor.fetchall()}
-    cursor = conn.execute("SELECT version, description, applied_at FROM schema_version")
+    cursor = conn.execute("SELECT version, description, applied_at FROM schema_version ORDER BY version")
     rows = cursor.fetchall()
     conn.close()
 
     assert "version" in columns
     assert "description" in columns
     assert "applied_at" in columns
-    assert len(rows) == 1
+    assert len(rows) >= 1
     assert rows[0][0] == "001"
     assert rows[0][1] == "Initial schema_version table with version, description, applied_at"
     assert rows[0][2]  # applied_at is non-empty
@@ -87,7 +88,7 @@ def test_get_applied_migrations_returns_history(tmp_path: Path) -> None:
 
     applied = get_applied_migrations(db_path)
 
-    assert len(applied) == 1
+    assert len(applied) >= 1
     assert applied[0]["version"] == "001"
     assert applied[0]["description"] == "Initial schema_version table with version, description, applied_at"
     assert applied[0]["applied_at"]
@@ -139,3 +140,45 @@ def test_old_schema_version_fails_migrate(tmp_path: Path) -> None:
 
     with pytest.raises(PhaicullDatabaseError, match="corrupted or not a Phaicull"):
         migrate(db_path)
+
+
+def test_migrate_creates_project_tables(tmp_path: Path) -> None:
+    """Project DB has files, metrics, groups tables after migrate."""
+    db_path = tmp_path / "project.db"
+    migrate(db_path)
+
+    conn = sqlite3.connect(str(db_path))
+    cursor = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('files','metrics','groups') ORDER BY name"
+    )
+    tables = [row[0] for row in cursor.fetchall()]
+    conn.close()
+
+    assert tables == ["files", "groups", "metrics"]
+
+
+def test_migrate_registry_creates_db_and_projects(tmp_path: Path) -> None:
+    """Registry migrate creates DB and projects table."""
+    db_path = tmp_path / "registry.db"
+    assert not db_path.exists()
+
+    version = migrate_registry(db_path)
+
+    assert db_path.exists()
+    assert version == "001"
+    conn = sqlite3.connect(str(db_path))
+    cursor = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='projects'"
+    )
+    row = cursor.fetchone()
+    conn.close()
+    assert row is not None
+    assert row[0] == "projects"
+
+
+def test_migrate_registry_idempotent(tmp_path: Path) -> None:
+    """Running migrate_registry twice returns same version."""
+    db_path = tmp_path / "registry.db"
+    v1 = migrate_registry(db_path)
+    v2 = migrate_registry(db_path)
+    assert v1 == v2 == "001"

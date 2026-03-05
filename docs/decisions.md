@@ -171,9 +171,17 @@ See [ADR-001](adr-001.md) for the full architecture decision record (CLI-first, 
 ### Implemented (Sprint 0)
 
 - `core/database/migrations/001_initial.sql` — creates `schema_version` table with `(version, description, applied_at)`.
+- `core/database/migrations/002_project_schema.sql` — project DB tables: `files`, `metrics`, `groups`.
+- **Two databases:**
+  - **Project DB:** one per photo directory at `{project}/phaicull/phaicull.db`. Tables: `schema_version`, `files`, `metrics`, `groups`. Use `migrate(db_path)`.
+  - **Registry DB:** one in install dir at `.projects/registry.db`. Tables: `schema_version`, `projects`. Use `migrate_registry(db_path)`.
+- `core/database/migrations_registry/001_initial.sql` — registry `schema_version` and `projects` table.
 - `core/database/migrate.py`:
-  - `migrate(db_path)` — applies pending migrations, enables WAL; returns current version.
+  - `migrate(db_path)` — project DB: applies migrations from `migrations/`; returns current version (e.g. `"002"`).
+  - `migrate_registry(db_path)` — registry DB: applies migrations from `migrations_registry/`; returns current version (e.g. `"001"`).
   - `get_schema_version(db_path)` — returns current version without running migrations.
   - `get_applied_migrations(db_path)` — returns list of all applied migrations (version, description, applied_at) for audit.
 - **Description:** From migration file via `-- migration: <description>` or `-- description: <description>`; otherwise filename.
 - **History:** Each applied migration is appended to `schema_version` (no overwrite); full history enables recovery and verification.
+- `core/database/schema.py` — schema constants and table/column names (stable API).
+- `core/database/dao.py` — DAO: `get_project_db_path`, `get_registry_db_path`, `ensure_project_db`, `ensure_registry_db`, `open_project_connection`, `open_registry_connection`, `insert_file`, `add_project`, `list_projects`.
