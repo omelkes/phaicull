@@ -26,7 +26,7 @@
 
 ### 4. Shared Utilities & Testing (Depends on DB)
 - [x] **Test infrastructure:** Create `tests/conftest.py` with shared pytest fixtures: synthetic valid image, zero-byte file, non-image file, extreme aspect ratio image, and a temp SQLite DB factory.
-- [ ] **MIME validation utility:** Implement `core/utils/mime.py` — magic byte checker for supported image types. 
+- [x] **MIME validation utility:** Implement `core/utils/mime.py` — magic byte checker for supported image types. 
 - [ ] **BaseAnalyzer scaffold:** Create `core/analyzers/base.py` with the abstract `BaseAnalyzer` class, input/output type contracts, and docstring.
 
 ### 5. Config & CLI
