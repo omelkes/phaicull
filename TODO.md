@@ -25,7 +25,7 @@
   - Project DB: `{project}/phaicull/phaicull.db` — tables `files`, `metrics`, `groups`. Registry DB: `.projects/registry.db` — table `projects`.
 
 ### 4. Shared Utilities & Testing (Depends on DB)
-- [ ] **Test infrastructure:** Create `tests/conftest.py` with shared pytest fixtures: synthetic valid image, zero-byte file, non-image file, extreme aspect ratio image, and a temp SQLite DB factory.
+- [x] **Test infrastructure:** Create `tests/conftest.py` with shared pytest fixtures: synthetic valid image, zero-byte file, non-image file, extreme aspect ratio image, and a temp SQLite DB factory.
 - [ ] **MIME validation utility:** Implement `core/utils/mime.py` — magic byte checker for supported image types. 
 - [ ] **BaseAnalyzer scaffold:** Create `core/analyzers/base.py` with the abstract `BaseAnalyzer` class, input/output type contracts, and docstring.
 
