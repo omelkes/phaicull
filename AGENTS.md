@@ -1,59 +1,57 @@
 # 🤖 AGENTS.md — AI Engineering Partner for Phaicull
 
-> This file is the **authoritative guide** for any AI agent working on this codebase.
-> Read it fully before writing any code. Source of truth for task status: [`TODO.md`](./TODO.md).
+This file is the **authoritative guide** for any AI agent working on this codebase.
+Read it fully before writing any code.
+Source of truth for tasks: [`TODO.md`](./TODO.md).
 
 ---
 
-## Workflow Protocols
+## 🛡️ Core Principles (The "Soul" of Phaicull)
 
-> All protocols marked **[MANDATORY]** must be followed on every task. Others are strong defaults.
-
-### 1. Atomic Tasks **[MANDATORY]**
-
-- **One TODO item per response.** Do not implement multiple items from [`TODO.md`](./TODO.md) in a single response. Item includes code + tests + docs + TODO update.
-- **Break it down first.** If a task seems too large for one response, propose sub-tasks and wait for confirmation before coding.
-- **No speculative work.** Do not implement features not listed in [`TODO.md`](./TODO.md) or explicitly requested.
-- **Reuse before creating.** Before writing a new module, search the codebase for existing patterns. If a similar utility exists, reuse or refactor it.
-- **Completion gate.** A task is "done" only when: implemented, explained, and ready for basic testing.
-
-### 2. Living Documentation **[MANDATORY]**
-
-After every task:
-- Update [`TODO.md`](./TODO.md): mark completed items, add newly discovered tasks or bugs.
-- Update `README.md` or `docs/` if the public interface, setup steps, or architecture changed.
-- End your response with a **"Project State"** note if the roadmap changed (e.g., new blockers, scope changes).
-
-### 3. Before Writing Code **[MANDATORY]**
-
-For any non-trivial change (new module, analyzer, DB schema change, concurrency, or ML logic), you must first provide a short plan:
-
-```
-PLAN
-────
-What: [what will be built]
-Why this approach: [why over simpler alternatives]
-Assumptions: [key assumptions made]
-Risks: [performance, correctness, scope concerns]
-TODO alignment: [which TODO.md item this addresses]
-```
-
-Only proceed to code after this plan is acknowledged.
+- **PRIVACY FIRST [MANDATORY]:** No cloud processing. No telemetry. No external API calls. All models must run 100% locally. Treat user data as sacred.
+- **Speed is a Feature:** Use thumbnails, lazy-loading, and background processing.
+- **CLI-First:** The Python core is a standalone CLI tool. UI is merely a consumer.
+- **Idempotent Analyzers:** Must be safely re-runnable. Missing metrics = `NULL`, not an error.
+- **TDD First:** Write tests before or alongside implementation.
 
 ---
 
-## When to Ask vs. When to Decide
+## 🛠 Workflow Protocols [MANDATORY]
 
-Use this table to avoid unnecessary back-and-forth while still surfacing real blockers.
+### 1. Atomic Tasks [MANDATORY]
+- **Atomic Tasks:** One TODO item per response. Include code + tests + docs + TODO update. 
+- **Plan First:** For any non-trivial change, provide a `PLAN` (What, Why, Risks, Alignment) and wait for acknowledgment.
+
+
+### 2. Living Documentation
+    - Update [`TODO.md`](./TODO.md) immediately after completion (mark done, add new bugs/tasks).
+    - End every response with a **"Project State"** summary if the roadmap or architecture shifted.
+    - Update `README.md` or `docs/` if the public interface, setup steps, or architecture changed.
+
+### 3. Interface Stability (The "Contract")
+The following are **Stable APIs**. Do not rename or break them without a version bump:
+- **CLI commands/flags** | **JSON output schema** | **SQLite schema** | **Analyzer contract** | **DAO methods**
+
+**Rules for Evolving APIs:**
+- **Additions:** Must be backward-compatible (nullable columns, optional JSON fields).
+- **Changes/Removals:** Requires `schema_version` increment, migration note in `TODO.md`, and updated tests.
+- **Internal Refactoring:** Free to change as long as the stable interfaces remain identical.
+
+
+### 4. Search Before Code
+Always search the codebase for existing patterns/utilities. Reuse > Refactor > Create.
+
+---
+
+## ⚖️ Decision Matrix
 
 | Situation | Action |
 |---|---|
-| Two valid approaches with different trade-offs | **Ask** — describe options briefly, recommend one |
-| Ambiguous requirement in [`TODO.md`](./TODO.md) | **Ask** before coding |
-| Minor implementation detail (variable name, helper method) | **Decide** and note your choice |
-| Approach matches existing codebase patterns | **Decide** and proceed |
-| New abstraction not in [`TODO.md`](./TODO.md) | **Ask** — do not invent it |
-| Discovered a bug or missing requirement mid-task | **Add to [`TODO.md`](./TODO.md)**, note it, continue current task |
+| New dependency needed | **ASK** — verify it works 100% offline |
+| Ambiguous requirement or multiple valid architectural trade-offs | **ASK** — provide options & recommendation |
+| Minor implementation detail (naming, helpers) matching existing style | **DECIDE** — proceed and note in summary |
+| Discovered bug outside current task scope | **LOG** — add to `TODO.md`, do not fix now |
+| Change to Stable APIs (CLI, JSON schema, DAO public methods) | **ASK** — requires version bump plan |
 
 ### Decision template
 
@@ -61,243 +59,70 @@ Use in commit message, docs or TODO note.
 
 ```
 Decision: X, 
-Alternatives: Y, 
-Rationale: Z" (2-3 lines) 
+Alternatives: A,B,... 
+Rationale: R" (2-3 lines) 
 ```
 
 ---
 
-## Core Principles
 
-| Principle | Rule |
-|---|---|
-| **Privacy First** | No cloud processing. All models must run locally (ONNX, PyTorch, OpenCV). |
-| **Speed is a Feature** | Use thumbnails. Lazy-load images. Offload CPU work to background processes. |
-| **CLI-First** | The Python core is a standalone, functional CLI tool. UI is a consumer, not the driver. |
-| **Idempotent Analyzers** | Every analyzer must be safely re-runnable. Missing metrics = `NULL`, not an error. |
-| **TDD First** | Write tests before or alongside implementation. See [Testing Standards](#testing-standards). |
-
----
-
-## Interface Stability & Security
-
-### Interface Stability **[MANDATORY]**
-
-The following are considered **stable APIs**. Once introduced, they must not be renamed, removed, or structurally changed without an explicit version bump and migration plan documented in [`TODO.md`](./TODO.md):
-
-| Stable API | Examples |
-|---|---|
-| **CLI commands & flags** | `phaicull scan <path>`, `--output-format` |
-| **JSON output schema** | Field names, types, and nesting in `stdout` output |
-| **SQLite schema** | Table names, column names, column types |
-| **Analyzer contract** | `BaseAnalyzer` interface, input/output types |
-| **DAO public methods** | Method signatures in `core/database/dao.py` |
-
-**Rules for evolving stable APIs:**
-
-- **Adding** new fields: always backward-compatible — use nullable DB columns and optional JSON fields with defaults.
-- **Changing or removing** anything: requires a `schema_version` increment in the `schema_version` table, a migration note added to [`TODO.md`](./TODO.md), updated documentation, and a corresponding test.
-- **Internal refactoring** (private methods, variable names, implementation details) is free — stable interfaces must remain predictable for UI and automation consumers.
-
-### Security & Safety **[MANDATORY]**
-
-Phaicull processes untrusted local files. Treat every input file as potentially adversarial.
-
-| Threat | Required Mitigation |
-|---|---|
-| **Malicious file types** | Validate using MIME magic bytes, not file extension |
-| **Decompression bombs** | Check image dimensions and file size before loading; reject files exceeding safe limits |
-| **Corrupted files** | Catch all exceptions per file; log to SQLite `status` column; never crash the scan |
-| **Path traversal** | Use `pathlib.Path.resolve()` and verify all paths stay within the target project directory |
-| **Sensitive EXIF data** | Strip or mask GPS coordinates and other PII from logs and JSON output |
-| **Network exposure** | No network calls, telemetry, or runtime model downloads — ever |
-| **DB corruption** | Always close connections and roll back uncommitted batches on shutdown or error |
-
-> **See also:** [Resilience & Error Handling](#resilience--error-handling) for implementation patterns covering graceful failure and shutdown.
-
----
-
-## Technical Standards
-
-### Python
-- Version: **3.12+**
-- Use **type hints** everywhere. No untyped public functions.
-- Use **`pathlib.Path`** for all filesystem operations. Never `os.path`.
-- Use **pydantic v2** for all data validation (DB input, JSON output, config).
-
-### Analyzer Contract
-Every analyzer **must**:
-- Inherit from `BaseAnalyzer` (defined in `core/analyzers/base.py`).
-- Be **independently runnable** — no hidden dependencies on other analyzers.
-- Be **idempotent** — running it twice on the same file produces the same result.
-- Accept a `Path` (never raw bytes) and return a typed `Pydantic` model.
-
-### Database
-- Engine: **SQLite** with `PRAGMA journal_mode=WAL;` enabled on every connection.
-- Schema versioning: use a `schema_version` table. Avoid Alembic until schema stabilizes.
-- Partial scans are a first-class concept: every metric column is **nullable**.
-- Use the **DAO pattern** (Data Access Objects) in `core/database/dao.py`. No raw SQL outside the DAO layer.
-- Never perform heavy computation inside a SQLite write-lock.
-
-### CLI
-- Entry point: `core/cli.py`
-- All output to `stdout` must be **machine-readable JSON**.
-- Exit codes: `0` = success, non-zero = failure (use standard POSIX codes).
-- The UI interacts with the Python core via **CLI subprocess calls** or **direct SQLite reads**. Never couple them more tightly.
-
----
-
-## Architecture & Image Analysis
-
-### Image Analysis Phases
-
-| Phase | Analyses | Trigger |
-|---|---|---|
-| **1. Metadata** | EXIF (date, camera, orientation) | Always |
-| **2. Fast Scan** | Laplacian Variance (Blur), Histogram (Brightness), pHash (Duplicates) | Default scan |
-| **3. Deep Scan** | MediaPipe/YOLO (faces), CLIP (quality score) | Explicit flag or later sprint |
-
-### AI / Model Strategy
-- **Embeddings:** CLIP via `sentence-transformers` or `open_clip`.
-- **Quality scoring (MVP):** Pre-trained Aesthetic Predictor on top of CLIP embeddings.
-- **User preferences:** Weight matrix stored locally in SQLite.
-- **Model storage:** All weights in `.models/` (git-ignored). Models must be bundled locally; no runtime downloads.
-
-### Auto-Orientation
-- Read EXIF orientation before any analysis.
-- All coordinate outputs (e.g., face bounding boxes) must be relative to the **oriented** image, not the raw file.
-
-### Thumbnail Strategy
-- Generate thumbnails during Fast Scan.
-- Store in `phaicull/thumbs/` inside the user's photo directory (see [Per-Project Directory](#per-project-directory-inside-users-photo-folder)).
-- Thumbnails are git-ignored.
-
----
-
-## Performance & Concurrency
+## 🏗 Core Architecture & Logic
 
 ### The Brain / Brawn Model
+- **Brain (`asyncio`):** Orchestration, I/O, DB writes, file-walking. **Never** run CPU-bound code here.
+- **Brawn (`multiprocessing`):** All image analysis (OpenCV, AI models). 
+- **Bridge:** Use `loop.run_in_executor` to call Brawn from Brain.
 
-| Layer | Technology | Responsibilities |
-|---|---|---|
-| **Brain** | `asyncio` | Orchestration, file-walking, DB writes, I/O coordination |
-| **Brawn** | `multiprocessing` (ProcessPoolExecutor) | CPU-bound work: Blur, CLIP, OpenCV |
-
-**Rule:** Never run Brawn logic inside the async event loop. Use `loop.run_in_executor(executor, fn, path)` to bridge them.
-
-### Memory Safety — The Golden Rule
-
-1. **Pass `Path`, never `bytes`** between processes.
-2. **Lazy loading:** Load an image only when the specific analyzer that needs it is executing.
-3. **Batching:** Process AI model inference (CLIP, MediaPipe) in batches, not one image at a time.
-4. **Bomb check:** Always verify image dimensions and file size before loading to prevent Decompression Bomb crashes.
+### Data & Storage
+- **Local Only:** No cloud, no telemetry, no runtime model downloads.
+- **SQLite (WAL mode):** Use the **DAO pattern** (`core/database/dao.py`). No raw SQL in analyzers.
+- **Analyzers:** Must inherit from `BaseAnalyzer`, be **idempotent**, and handle only **one** metric.
+- **Memory Safety:** Pass `Path` objects between processes, never raw `bytes`. Load images only when needed.
+- **Schema versioning:** use a schema_version table. Avoid Alembic until schema stabilizes.
 
 ---
 
-## Resilience & Error Handling
-
-- **Graceful failure:** If a file is corrupted or unreadable, log the error to the SQLite `status` column and continue. Never crash the scan.
-- **MIME validation:** Verify file signatures (magic bytes), not just extensions.
-- **Graceful shutdown:** Handle `SIGINT` (Ctrl+C) by closing SQLite connections and rolling back uncommitted batches.
-- **Validation gate:** All data must pass Pydantic v2 validation before DB writes or JSON output.
+## 🔒 Security & Resilience
+- **Decompression Bombs:** Verify image dimensions/size before loading.
+- **Adversarial Input:** Validate MIME magic bytes, not extensions. Catch all per-file exceptions; never crash the scan.
+- **Path Traversal:** Use `pathlib.Path.resolve()` to ensure operations stay within project scope.
+- **Graceful Shutdown:** Handle `SIGINT` (Ctrl+C) by rolling back uncommitted DB batches.
+- **Network exposure:**  No network calls, telemetry, or runtime model downloads — ever.
 
 ---
 
-## Testing Standards
+## 📝 Technical Standards (Python 3.12+)
 
-### Framework & Location
-- Framework: **pytest**
-- Location: `tests/` (mirrors `core/` structure, e.g., `tests/analyzers/test_blur.py`)
-- Naming: `test_<module>.py`, test functions as `test_<behavior>_<condition>`
+- **Typing:** Strict type hints everywhere. No `Any` without justification.
+- **Validation:** Use **Pydantic v2** for all data (DB, JSON output, Config).
+- **Filesystem:** `pathlib.Path` only. Never use `os.path`.
+- **Testing:** Every analyzer requires 4 test categories:
+    1. **Happy path** (valid files).
+    2. **Corrupted** (truncated/zero-byte).
+    3. **Invalid type** (txt, pdf).
+    4. **Edge cases** (1x1 px, extreme aspect ratios).
 
-### Required Test Cases per Analyzer
+---
 
-Every analyzer must have tests for all four categories:
+## 🚫 Anti-Patterns (Do NOT do these)
 
-| Category | Example |
+| ❌ AVOID | ✅ INSTEAD |
 |---|---|
-| **Happy path** | Valid JPEG, valid PNG |
-| **Corrupted files** | Zero-byte file, truncated JPEG |
-| **Non-image files** | `.txt`, `.pdf` passed as input |
-| **Edge cases** | Extreme aspect ratios, 1×1 pixel, very large file |
-
-### TDD Workflow
-1. Write the test (failing).
-2. Write the minimum code to pass.
-3. Refactor.
-4. Do not submit code where tests are skipped without a documented reason in [`TODO.md`](./TODO.md).
+| Speculative features | Stick strictly to `TODO.md` |
+| Mixing UI logic into `core/` | UI must remain a consumer (CLI/SQLite only) |
+| Heavy computation in DB write-lock | Compute first, batch write results later |
+| Silent failures | Log to SQLite `status` column and system logger |
+| Hardcoded paths | Use `Path(__file__)`, config, or project registry |
+| Creating new analyzers from scratch | Subclass `BaseAnalyzer` |
 
 ---
 
-## Dependency & Environment
-
-- **Package manager:** `uv` (preferred). All dependencies declared in `pyproject.toml`.
-- **Model storage:** `.models/` directory, git-ignored. No runtime downloads; models must be present locally.
-- **Project storage:** `.projects/` directory, git-ignored.
-- **Portability:** Code must run on macOS (arm64/x86) and Windows 10+.
-
----
-
-## Anti-Patterns
-
-| ❌ Do NOT | ✅ Instead |
-|---|---|
-| Use `os.path` | Use `pathlib.Path` |
-| Mix UI concerns (Tkinter, PySide) into Python core | Keep UI in `ui-macos/` or `ui-windows/` |
-| Introduce a long-running daemon or server (MVP) | Use CLI subprocess or direct SQLite reads |
-| Perform heavy computation inside a SQLite write-lock | Compute first, write results in batch |
-| Pass raw `bytes` between processes | Pass `Path` objects |
-| Create a new analyzer without inheriting `BaseAnalyzer` | Always subclass `BaseAnalyzer` |
-| Add a feature not in [`TODO.md`](./TODO.md) | Add it to `TODO.md` and get acknowledgment first |
-| Write tests without edge cases | Include all four test categories (see [Testing Standards](#testing-standards)) |
+## 📁 Non-Obvious Directory Notes
+- `.models/`: Git-ignored. Stores local weights. Models must be bundled.
+- `.projects/`: Git-ignored. Registry of local photo directories.
+- `ui-macos/` & `ui-windows/`: Independent UI consumers. Maintain strict CLI/DB contract.
+- `phaicull/` (inside user folders): Contains `phaicull.db` and `thumbs/`.
 
 ---
 
-## Terminology Glossary
-
-| Term | Definition |
-|---|---|
-| **Base Model** | An immutable model shipped with Phaicull (read-only). |
-| **Personal Model** | A user-trained local model layered on top of a Base Model. |
-
----
-
-## Per-Project Directory (Inside User's Photo Folder)
-
-```
-/photo-directory/
-├── phaicull/
-│   ├── thumbs/           # Cached thumbnails (git-ignored)
-│   └── phaicull.db       # SQLite database for this photo directory
-├── img001.jpg
-├── img002.jpg
-└── ...
-```
-
----
-
-## Definition of Done
-
-### General Definition
-
-A task is considered **done** when all of the following are true:
-
-| Criterion | Requirement |
-|---|---|
-| **Implemented** | Code is written, compiles/runs, and fulfills the task description |
-| **Tested** | Unit tests cover happy path + all four edge case categories (see [Testing Standards](#testing-standards)) |
-| **Documented** | Any changed public interface, CLI flag, or DB schema is reflected in `README.md` or `docs/` |
-| **Validated** | Pydantic models validate all inputs/outputs; no unhandled exceptions on known error cases |
-| **Logged** | Errors and key events are logged at the appropriate level |
-| **TODO updated** | The corresponding item in [`TODO.md`](./TODO.md) is marked complete; any discovered follow-up tasks are added |
-
-A task is **not done** if tests are skipped, documentation is stale, or [`TODO.md`](./TODO.md) has not been updated.
-
-### Sprint Task Status
-
-> **All current sprint tasks, priorities, and completion status are tracked in [`TODO.md`](./TODO.md).**
-> That file is the single source of truth. Do not rely on this file for task status — always read `TODO.md` first.
-
----
-
-*Last updated: see git log. For task status, always refer to [`TODO.md`](./TODO.md).*
+**Definition of Done:** Implemented + 4-category Tests + Docs updated + `TODO.md` updated + No Pydantic validation errors.
