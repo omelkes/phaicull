@@ -5,31 +5,13 @@
 
 ---
 
-## 📋 Table of Contents
-1. [Workflow Protocols](#workflow-protocols)
-2. [Before Writing Code](#before-writing-code)
-3. [When to Ask vs. When to Decide](#when-to-ask-vs-when-to-decide)
-4. [Core Principles](#core-principles)
-5. [Technical Standards](#technical-standards)
-6. [Architecture & Image Analysis](#architecture--image-analysis)
-7. [Performance & Concurrency](#performance--concurrency)
-8. [Resilience & Error Handling](#resilience--error-handling)
-9. [Testing Standards](#testing-standards)
-10. [Dependency & Environment](#dependency--environment)
-11. [Anti-Patterns](#anti-patterns)
-12. [Terminology Glossary](#terminology-glossary)
-13. [Directory Structure](#directory-structure)
-14. [Definition of Done](#definition-of-done)
-
----
-
 ## Workflow Protocols
 
 > All protocols marked **[MANDATORY]** must be followed on every task. Others are strong defaults.
 
 ### 1. Atomic Tasks **[MANDATORY]**
 
-- **One TODO item per response..** Do not implement multiple items from [`TODO.md`](./TODO.md) in a single r qesponse. Item includes code + tests + docs + TODO update. 
+- **One TODO item per response.** Do not implement multiple items from [`TODO.md`](./TODO.md) in a single response. Item includes code + tests + docs + TODO update.
 - **Break it down first.** If a task seems too large for one response, propose sub-tasks and wait for confirmation before coding.
 - **No speculative work.** Do not implement features not listed in [`TODO.md`](./TODO.md) or explicitly requested.
 - **Reuse before creating.** Before writing a new module, search the codebase for existing patterns. If a similar utility exists, reuse or refactor it.
@@ -80,7 +62,7 @@ Use in commit message, docs or TODO note.
 ```
 Decision: X, 
 Alternatives: Y, 
-Rationale: Z” (2-3 lines) 
+Rationale: Z" (2-3 lines) 
 ```
 
 ---
@@ -167,16 +149,6 @@ Every analyzer **must**:
 
 ## Architecture & Image Analysis
 
-### Component Map
-
-```
-Analyzers   → Modular classes, one metric each (Blur, Brightness, pHash, etc.)
-Storage     → DAO pattern over SQLite
-CLI         → Typer entry point; outputs structured JSON
-UI (macOS)  → SwiftUI app; reads SQLite or calls CLI subprocess
-UI (Windows)→ .NET 8 / WinUI 3; same contract as macOS UI
-```
-
 ### Image Analysis Phases
 
 | Phase | Analyses | Trigger |
@@ -197,7 +169,7 @@ UI (Windows)→ .NET 8 / WinUI 3; same contract as macOS UI
 
 ### Thumbnail Strategy
 - Generate thumbnails during Fast Scan.
-- Store in `phaicull/thumbs/` inside the user's photo directory (see [Directory Structure](#directory-structure)).
+- Store in `phaicull/thumbs/` inside the user's photo directory (see [Per-Project Directory](#per-project-directory-inside-users-photo-folder)).
 - Thumbnails are git-ignored.
 
 ---
@@ -285,51 +257,12 @@ Every analyzer must have tests for all four categories:
 
 | Term | Definition |
 |---|---|
-| **Analyzer** | A module that computes exactly one metric (e.g., blur score). Must subclass `BaseAnalyzer`. |
-| **Scan** | A run over a set of files that may compute only a subset of metrics. |
-| **Project** | A photo directory with a single associated SQLite database in `phaicull/phaicull.db`. |
 | **Base Model** | An immutable model shipped with Phaicull (read-only). |
 | **Personal Model** | A user-trained local model layered on top of a Base Model. |
-| **Brain** | The `asyncio` orchestration layer. Handles I/O, file-walking, DB coordination. |
-| **Brawn** | The `multiprocessing` compute layer. Handles CPU-bound image analysis. |
-| **Fast Scan** | Metadata + Blur + Brightness + pHash. Designed to be quick. |
-| **Deep Scan** | Face detection + CLIP quality scoring. Heavier, run on-demand or later. |
 
 ---
 
-## Directory Structure
-
-### Repository
-
-```
-/phaicull
-├── .models/              # Local model weights (git-ignored)
-├── .projects/            # Project path registry (git-ignored)
-├── core/
-│   ├── analyzers/
-│   │   ├── base.py       # BaseAnalyzer abstract class
-│   │   ├── blur.py
-│   │   ├── brightness.py
-│   │   └── ...
-│   ├── database/
-│   │   ├── schema.py     # SQLite schema, WAL pragma, version table
-│   │   └── dao.py        # Data Access Objects (all SQL lives here)
-│   ├── models/           # Pydantic schemas (DB models, JSON output)
-│   ├── utils/            # Image loading, EXIF helpers, thumbnail generation
-│   └── cli.py            # Typer entry point
-├── ui-macos/             # SwiftUI app
-├── ui-windows/           # .NET 8 / WinUI 3 app
-├── tests/
-│   ├── analyzers/        # test_blur.py, test_brightness.py, ...
-│   ├── database/
-│   └── conftest.py       # Shared fixtures (synthetic images, temp DBs)
-├── pyproject.toml        # Managed via uv
-├── TODO.md               # ← Single source of truth for task status
-├── AGENTS.md             # ← This file
-└── README.md
-```
-
-### Per-Project Directory (Inside User's Photo Folder)
+## Per-Project Directory (Inside User's Photo Folder)
 
 ```
 /photo-directory/
