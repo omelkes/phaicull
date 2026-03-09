@@ -1,0 +1,10 @@
+# Phaicull configuration example.
+# Copy to phaicull.toml in project root or pass --config path/to/phaicull.toml
+
+burst_window_seconds = 5.0
+heavy_features_enabled = false
+
+[thresholds]
+blur_min = 0.1
+brightness_min = 0.2
+brightness_max = 0.9

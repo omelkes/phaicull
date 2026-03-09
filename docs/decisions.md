@@ -10,6 +10,7 @@
 | DEC-002 | Structured logging | loguru |
 | DEC-003 | CLI framework | typer |
 | DEC-004 | Migration strategy | custom lightweight script |
+| DEC-005 | Config format | TOML (stdlib tomllib) |
 
 See [ADR-001](adr-001.md) for the full architecture decision record (CLI-first, SQLite, offline-first, UI contracts).
 
@@ -185,3 +186,35 @@ See [ADR-001](adr-001.md) for the full architecture decision record (CLI-first, 
 - **History:** Each applied migration is appended to `schema_version` (no overwrite); full history enables recovery and verification.
 - `core/database/schema.py` — schema constants and table/column names (stable API).
 - `core/database/dao.py` — DAO: `get_project_db_path`, `get_registry_db_path`, `ensure_project_db`, `ensure_registry_db`, `open_project_connection`, `open_registry_connection`, `insert_file`, `add_project`, `list_projects`.
+
+---
+
+## DEC-005: Config Format — TOML vs YAML
+
+**Status:** Decided  
+**Date:** 2025-03-09  
+**TODO:** Sprint 0, Section 5 — Config system
+
+### Decision
+
+**Use TOML** for configuration. Load via stdlib `tomllib` (Python 3.11+). Config file: `phaicull.toml`.
+
+### Alternatives Considered
+
+| Option | Pros | Cons |
+|--------|------|------|
+| **TOML** | Stdlib `tomllib`, zero dependency, matches pyproject.toml, Pydantic validation | Less common for app config than YAML |
+| **YAML** | Widely used for config, human-friendly | Requires PyYAML, AGENTS.md: ASK for new deps, verify offline |
+
+### Rationale
+
+1. **No new dependency:** `tomllib` is in the Python 3.11+ stdlib. Phaicull requires 3.12+.
+2. **AGENTS.md alignment:** "New dependency needed — ASK" — TOML avoids adding PyYAML.
+3. **Pydantic:** `Config.model_validate(tomllib.load(fp))` works cleanly.
+4. **Schema:** `[thresholds]`, `burst_window_seconds`, `heavy_features_enabled` map directly.
+
+### Implemented (Sprint 0)
+
+- `core/config.py` — `Config`, `ThresholdsConfig` (Pydantic v2), `load_config(path)`.
+- Fields: `thresholds.blur_min`, `thresholds.brightness_min`, `thresholds.brightness_max`, `burst_window_seconds`, `heavy_features_enabled`.
+- `phaicull.toml.example` — example config for users.

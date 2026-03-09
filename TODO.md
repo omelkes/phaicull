@@ -30,7 +30,7 @@
 - [x] **BaseAnalyzer scaffold:** Create `core/analyzers/base.py` with the abstract `BaseAnalyzer` class, input/output type contracts, and docstring.
 
 ### 5. Config & CLI
-- [ ] **Config system:** (YAML or TOML) to handle: thresholds (blur, brightness), burst window, and enable/disable heavy features.
+- [x] **Config system:** (YAML or TOML) to handle: thresholds (blur, brightness), burst window, and enable/disable heavy features.
 - [ ] **CLI Scaffold:** Create `cli.py` entry point with `rich` for terminal output.
 
 
