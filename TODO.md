@@ -31,7 +31,7 @@
 
 ### 5. Config & CLI
 - [x] **Config system:** (YAML or TOML) to handle: thresholds (blur, brightness), burst window, and enable/disable heavy features.
-- [ ] **CLI Scaffold:** Create `cli.py` entry point with `rich` for terminal output.
+- [x] **CLI Scaffold:** Create `cli.py` entry point with `rich` for terminal output.
 
 
 ## ⚙️ Sprint 1: Core Analyzer (The Junk Filter)

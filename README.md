@@ -30,6 +30,7 @@ Phaicull uses a multi-layered approach to analyze your library:
 - **Package manager:** [uv](https://docs.astral.sh/uv/) (recommended)
 - **Install:** `uv sync` — creates a virtual environment and installs dependencies from `pyproject.toml`
 - **Run tests:** `uv run pytest`
+- **CLI:** `uv run phaicull --help` or `uv run phaicull scan <folder>`
 
 ## 🛠 Tech Stack
 - **Core:** Python 3.12+ (OpenCV, NumPy, MediaPipe, ONNX)

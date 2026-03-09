@@ -12,6 +12,9 @@ dependencies = [
     "pydantic>=2.0.0",
 ]
 
+[project.scripts]
+phaicull = "core.cli:run"
+
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0.0",
