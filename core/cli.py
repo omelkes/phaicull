@@ -9,7 +9,6 @@ from pathlib import Path
 
 import typer
 from rich.console import Console
-from rich.panel import Panel
 
 from core.config import load_config
 
@@ -69,16 +68,13 @@ def scan(
     Sprint 1 will implement full scan logic. This scaffold confirms the command structure.
     """
     cfg = load_config(config_path)
+    console.print(f"Folder: {folder}")
+    console.print(f"Burst window: {cfg.burst_window_seconds}s")
     console.print(
-        Panel(
-            f"[bold]Folder:[/] {folder}\n"
-            f"[bold]Burst window:[/] {cfg.burst_window_seconds}s\n"
-            f"[bold]Heavy features:[/] {'enabled' if cfg.heavy_features_enabled else 'disabled'}",
-            title="Scan (scaffold)",
-            border_style="blue",
-        )
+        "Heavy features: "
+        + ("enabled" if cfg.heavy_features_enabled else "disabled")
     )
-    console.print("[dim]Full scan implementation in Sprint 1.[/dim]")
+    console.print("Full scan implementation in Sprint 1.")
 
 
 def run() -> None:
