@@ -5,7 +5,7 @@ Two databases (per AGENTS.md and TODO):
   Tables: schema_version, files, metrics, groups.
 - Registry DB: one in install dir at .projects/registry.db.
   Tables: schema_version, projects.
-WAL mode is enabled on every connection (see migrate.py and dao.py).
+WAL mode is enabled on every connection (see connection.py).
 """
 
 from __future__ import annotations

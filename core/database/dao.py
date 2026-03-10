@@ -11,14 +11,8 @@ import sqlite3
 from pathlib import Path
 
 from core.database import schema
+from core.database.connection import enable_wal
 from core.database.migrate import migrate, migrate_registry
-
-# WAL per AGENTS.md
-WAL_PRAGMA = "PRAGMA journal_mode=WAL;"
-
-
-def _enable_wal(conn: sqlite3.Connection) -> None:
-    conn.execute(WAL_PRAGMA)
 
 
 def get_project_db_path(project_root: Path) -> Path:
@@ -54,7 +48,7 @@ def open_project_connection(project_root: Path) -> sqlite3.Connection:
     db_path = ensure_project_db(project_root)
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
-    _enable_wal(conn)
+    enable_wal(conn)
     return conn
 
 
@@ -63,7 +57,7 @@ def open_registry_connection(base_dir: Path | None = None) -> sqlite3.Connection
     db_path = ensure_registry_db(base_dir)
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
-    _enable_wal(conn)
+    enable_wal(conn)
     return conn
 
 

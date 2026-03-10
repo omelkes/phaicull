@@ -49,7 +49,8 @@ def get_image_mime(path: Path) -> str | None:
     if not path.is_file():
         return None
     try:
-        header = path.read_bytes()[: _READ_LEN]
+        with path.open("rb") as f:
+            header = f.read(_READ_LEN)
     except OSError:
         return None
     if len(header) == 0:

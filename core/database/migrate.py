@@ -22,9 +22,10 @@ from pathlib import Path
 
 from loguru import logger
 
+from core.database.connection import enable_wal
+
 MIGRATIONS_DIR = Path(__file__).resolve().parent / "migrations"
 REGISTRY_MIGRATIONS_DIR = Path(__file__).resolve().parent / "migrations_registry"
-WAL_PRAGMA = "PRAGMA journal_mode=WAL;"
 
 # Required columns for schema_version. No upgrade path; wrong schema → fail.
 SCHEMA_VERSION_COLUMNS = frozenset({"version", "description", "applied_at"})
@@ -35,11 +36,6 @@ DESCRIPTION_PATTERN = re.compile(r"^\s*--\s*(?:migration|description):\s*(.+)$",
 
 class PhaicullDatabaseError(RuntimeError):
     """Raised when the database is not a valid Phaicull DB (wrong or corrupted schema)."""
-
-
-def _enable_wal(conn: sqlite3.Connection) -> None:
-    """Enable WAL mode on the connection. Required per AGENTS.md."""
-    conn.execute(WAL_PRAGMA)
 
 
 def _get_schema_version_columns(conn: sqlite3.Connection) -> list[str]:
@@ -73,6 +69,22 @@ def _get_current_version(conn: sqlite3.Connection) -> str | None:
         return row[0] if row else None
     except sqlite3.OperationalError:
         return None
+
+
+def _execute_migration_sql(conn: sqlite3.Connection, sql: str) -> None:
+    """Execute migration SQL as individual statements within the current transaction.
+
+    Unlike executescript(), this does NOT issue an implicit COMMIT, so schema changes
+    and the subsequent schema_version INSERT stay in the same transaction.
+    Strips line comments (-- to EOL) before splitting to avoid semicolons in comments.
+    """
+    # Remove line comments so semicolons inside (e.g. "Nullable; partial scans") don't split.
+    sql_no_comments = re.sub(r"--[^\n]*", "", sql)
+    for stmt in sql_no_comments.split(";"):
+        stmt = stmt.strip()
+        if not stmt:
+            continue
+        conn.execute(stmt)
 
 
 def _parse_description(path: Path) -> str:
@@ -109,7 +121,7 @@ def _run_migrations(db_path: Path, migrations_dir: Path) -> str:
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
     try:
-        _enable_wal(conn)
+        enable_wal(conn)
         _validate_schema_version_table(conn)
         current = _get_current_version(conn)
         migrations = _list_migrations(migrations_dir)
@@ -120,7 +132,7 @@ def _run_migrations(db_path: Path, migrations_dir: Path) -> str:
             description = _parse_description(path)
             logger.info("Applying migration {} ({}) from {}", version, description, path.name)
             sql = path.read_text()
-            conn.executescript(sql)
+            _execute_migration_sql(conn, sql)
             conn.execute(
                 "INSERT INTO schema_version (version, description, applied_at) VALUES (?, ?, ?)",
                 (version, description, datetime.now(timezone.utc).isoformat()),
