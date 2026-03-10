@@ -9,7 +9,7 @@ from __future__ import annotations
 import tomllib
 from pathlib import Path
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 # Default config filename
@@ -37,6 +37,15 @@ class ThresholdsConfig(BaseModel):
         le=1.0,
         description="Above this = too bright / blown out.",
     )
+
+    @model_validator(mode="after")
+    def brightness_min_lt_max(self) -> "ThresholdsConfig":
+        if self.brightness_min >= self.brightness_max:
+            raise ValueError(
+                "brightness_min must be less than brightness_max "
+                f"(got brightness_min={self.brightness_min}, brightness_max={self.brightness_max})"
+            )
+        return self
 
 
 class Config(BaseModel):

@@ -109,7 +109,7 @@ def _list_migrations(migrations_dir: Path) -> list[tuple[str, Path]]:
         prefix = p.stem.split("_")[0]
         if prefix.isdigit():
             migrations.append((prefix, p))
-    migrations.sort(key=lambda x: x[0])
+    migrations.sort(key=lambda x: int(x[0]))
     return migrations
 
 
@@ -127,7 +127,7 @@ def _run_migrations(db_path: Path, migrations_dir: Path) -> str:
         migrations = _list_migrations(migrations_dir)
 
         for version, path in migrations:
-            if current is not None and version <= current:
+            if current is not None and int(version) <= int(current):
                 continue
             description = _parse_description(path)
             logger.info("Applying migration {} ({}) from {}", version, description, path.name)

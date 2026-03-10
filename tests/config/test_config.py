@@ -99,6 +99,18 @@ def test_thresholds_blur_min_out_of_range() -> None:
         ThresholdsConfig(blur_min=-0.1)
 
 
+def test_thresholds_brightness_min_lt_max() -> None:
+    """brightness_min must be less than brightness_max."""
+    with pytest.raises(ValidationError, match="brightness_min must be less than brightness_max"):
+        ThresholdsConfig(brightness_min=0.9, brightness_max=0.2)
+    with pytest.raises(ValidationError, match="brightness_min must be less than brightness_max"):
+        ThresholdsConfig(brightness_min=0.5, brightness_max=0.5)
+    # Valid: min < max
+    cfg = ThresholdsConfig(brightness_min=0.2, brightness_max=0.9)
+    assert cfg.brightness_min == 0.2
+    assert cfg.brightness_max == 0.9
+
+
 def test_burst_window_out_of_range() -> None:
     """burst_window_seconds must be 0.1–300."""
     with pytest.raises(ValidationError):
@@ -127,4 +139,19 @@ burst_window_seconds = "five"
         encoding="utf-8",
     )
     with pytest.raises(ValidationError):
+        load_config(toml)
+
+
+def test_load_config_inverted_brightness_raises(tmp_path: Path) -> None:
+    """TOML with brightness_min >= brightness_max raises ValidationError."""
+    toml = tmp_path / "phaicull.toml"
+    toml.write_text(
+        """
+[thresholds]
+brightness_min = 0.9
+brightness_max = 0.2
+""",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValidationError, match="brightness_min must be less than brightness_max"):
         load_config(toml)
