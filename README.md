@@ -32,6 +32,10 @@ Phaicull uses a multi-layered approach to analyze your library:
 - **Run tests:** `uv run pytest`
 - **CLI:** `uv run phaicull --help` or `uv run phaicull scan <folder>`
 
+**Test directories:**
+- `tests/fixtures/images/` — committed basic images for unit tests (CI, contributors)
+- `.local-photos/` — gitignored directory for real photo testing and model training (never committed)
+
 ## 🛠 Tech Stack
 - **Core:** Python 3.12+ (OpenCV, NumPy, MediaPipe, ONNX)
 - **Database:** SQLite (One database per project/folder)

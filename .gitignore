@@ -211,3 +211,5 @@ __marimo__/
 !.models/.gitkeep
 .projects/*
 !.projects/.gitkeep
+.local-photos/*
+!.local-photos/.gitkeep

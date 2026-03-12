@@ -46,19 +46,25 @@
 ### 2. Database Update
 - [ ] **Database:** Extend SQLite schema to store `file_path`, `hash`, `blur_score`, `brightness_score`.
 - [ ] **Schema version wiring:** Update `schema_version` table (e.g., to `v2` or apply migration).
+- [ ] **DAO metrics:** Add `insert_metric(conn, file_id, metric_name, value_real, value_text)` (or upsert) in dao.py. All analyzer output is persisted via this method.
 
 ### 3. Infrastructure & Pre-processing (The Loader phase)
 - [ ] **Format Support:** Add basic JPG/PNG + **HEIC** support (essential for iPhone photos).
 - [ ] **MIME validation gate:** Call `core/utils/mime.py` at the start of every scan. Reject files that fail magic byte validation and log rejection to SQLite `status`.
 - [ ] **EXIF orientation:** Implement auto-orientation in `core/utils/exif.py`. Read EXIF orientation tag and rotate/flip image data before passing to any analyzer.
 - [ ] **High-Perf Image Loader:** Implement threaded/multiprocess image loading (using `ProcessPoolExecutor`).
+- [ ] **Brain/Brawn pipeline:** Implement scan orchestration: Brain handles file-walking, I/O, and batch DB writes; Brawn (ProcessPoolExecutor) runs image loading and analyzers. Pass Path objects; never raw bytes between processes.
+- [ ] **Image load safety:** Verify image dimensions and file size before decode to prevent decompression bombs (per AGENTS.md). Reject and log oversized images.
+- [ ] **Path scope safety:** Ensure all scanned file paths stay within the scan folder root. Use Path.resolve(); reject or skip symlinks/paths that escape project scope.
 - [ ] **Benchmark Set:** Create a 'Ground Truth' folder with 10 blurry and 10 sharp photos to test algorithm accuracy locally.
+- [ ] **Test project structure:** Create two directories: (1) `tests/fixtures/images/` — committed basic images for unit tests; (2) `.local-photos/` — gitignored directory for real photo testing/training. Add `.local-photos/*` and `!.local-photos/.gitkeep` to .gitignore. Create `.local-photos/.gitkeep`. Document both in README or docs.
 
 ### 4. Core Analyzers (The Compute phase)
 - [ ] **Normalization Logic:** Implement utilities to normalize all metrics to comparable scales (0–1).
 - [ ] **Blur Analyzer:** Laplacian Variance. Stable across resolutions, normalized to 0–1.
 - [ ] **Exposure Analyzer:** RMS Contrast & Mean Brightness.
 - [ ] **Duplicates Analyzer:** Perceptual Hashing (pHash) to find near-matches.
+- [ ] **Analyzer tests:** Each analyzer (Blur, Exposure, Duplicates) must have 4-category tests: happy path, corrupted (truncated/zero-byte), invalid type (non-image), edge cases (1x1 px, extreme aspect ratio). Per AGENTS.md Technical Standards.
 
 ### 5. Post-Processing (Grouping & Caching)
 - [ ] **Grouping Logic:** Algorithm to group photos by time-window (e.g., "bursts" within 5 seconds). Uses EXIF time if available, file mtime as fallback.
