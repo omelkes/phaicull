@@ -3,34 +3,35 @@
 ## 🏗 Sprint 0: Foundation
 
 ### 1. Decisions First (must be resolved before ANY code is written)
-- [ ] **Research and Decide:** SQLite via raw `sqlite3` or `SQLAlchemy` (document choice in docs/).
-- [ ] **Decide tool for structured logging.** The UI must be able to parse the log stream for real-time progress. Consider `loguru` for its structured logging and ease of use.
-- [ ] **Decide framework for CLI.** Should we use **`typer`** (preferred) or `click`.
-- [ ] **Decide Migration Strategy:** Decide how SQLite schema versioning and migrations will be handled (e.g., custom lightweight script vs. Alembic).
-- [ ] **Decision outputs:** All decisions above must produce a written record in `docs/decisions.md`.
-- [ ] **Architecture decision record (ADR-001):**
+- [x] **Research and Decide:** SQLite via raw `sqlite3` or `SQLAlchemy` (document choice in docs/).
+- [x] **Decide tool for structured logging.** The UI must be able to parse the log stream for real-time progress. Consider `loguru` for its structured logging and ease of use.
+- [x] **Decide framework for CLI.** Should we use **`typer`** (preferred) or `click`.
+- [x] **Decide Migration Strategy:** Decide how SQLite schema versioning and migrations will be handled (e.g., custom lightweight script vs. Alembic).
+- [x] **Decision outputs:** All decisions above must produce a written record in `docs/decisions.md`.
+- [x] **Architecture decision record (ADR-001):**
   - CLI-first execution model
   - SQLite default DB
   - Offline-first, plugin-based AI
   - Define contracts for UI integration (JSON output, progress reporting, DB schema)
 
 ### 2. Environment & Structure
-- [ ] **Environment:** Initialize Python 3.12 environment with `pyproject.toml`.
-- [ ] **Structure:** Create correct directory structure (see AGENTS.md). Setup `.gitignore`.
-- [ ] **Directory initialization:** Create `.models/.gitkeep` and `.projects/.gitkeep` so git-ignored directories exist in the repo without committing real content.
+- [x] **Environment:** Initialize Python 3.12 environment with `pyproject.toml`.
+- [x] **Structure:** Create correct directory structure (see AGENTS.md). Setup `.gitignore`.
+- [x] **Directory initialization:** Create `.models/.gitkeep` and `.projects/.gitkeep` so git-ignored directories exist in the repo without committing real content.
 
 ### 3. Database Foundation
-- [ ] **Persistence Scaffold:** Design & implement the base SQLite schema (Tables: `files`, `metrics`, `groups`, `projects`).
-- [ ] **Schema Versioning implementation:** Implement the chosen migration strategy. Include a `schema_version` table seeded with `v1` in the initial setup.
+- [x] **Schema Versioning implementation:** Implement the chosen migration strategy. Include a `schema_version` table seeded with `v1` in the initial setup.
+- [x] **Persistence Scaffold:** Design & implement the base SQLite schema (Tables: `files`, `metrics`, `groups`, `projects`).
+  - Project DB: `{project}/phaicull/phaicull.db` — tables `files`, `metrics`, `groups`. Registry DB: `.projects/registry.db` — table `projects`.
 
 ### 4. Shared Utilities & Testing (Depends on DB)
-- [ ] **Test infrastructure:** Create `tests/conftest.py` with shared pytest fixtures: synthetic valid image, zero-byte file, non-image file, extreme aspect ratio image, and a temp SQLite DB factory.
-- [ ] **MIME validation utility:** Implement `core/utils/mime.py` — magic byte checker for supported image types. 
-- [ ] **BaseAnalyzer scaffold:** Create `core/analyzers/base.py` with the abstract `BaseAnalyzer` class, input/output type contracts, and docstring.
+- [x] **Test infrastructure:** Create `tests/conftest.py` with shared pytest fixtures: synthetic valid image, zero-byte file, non-image file, extreme aspect ratio image, and a temp SQLite DB factory.
+- [x] **MIME validation utility:** Implement `core/utils/mime.py` — magic byte checker for supported image types. 
+- [x] **BaseAnalyzer scaffold:** Create `core/analyzers/base.py` with the abstract `BaseAnalyzer` class, input/output type contracts, and docstring.
 
 ### 5. Config & CLI
-- [ ] **Config system:** (YAML or TOML) to handle: thresholds (blur, brightness), burst window, and enable/disable heavy features.
-- [ ] **CLI Scaffold:** Create `cli.py` entry point with `rich` for terminal output.
+- [x] **Config system:** (YAML or TOML) to handle: thresholds (blur, brightness), burst window, and enable/disable heavy features.
+- [x] **CLI Scaffold:** Create `cli.py` entry point with `rich` for terminal output.
 
 
 ## ⚙️ Sprint 1: Core Analyzer (The Junk Filter)
@@ -128,6 +129,7 @@ Try and decide the best result
 - [ ] Keep TODO aligned with actual code structure
 - [ ] Move completed tasks into CHANGELOG or release notes
 - [ ] **Schema pragmatism:** start denormalized, refactor after Sprints if needed
+ - [x] Fix `schema_version` numeric ordering bug in migrations (TEXT vs integer ordering)
 
 
 

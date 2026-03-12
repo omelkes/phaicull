@@ -25,6 +25,13 @@ Phaicull uses a multi-layered approach to analyze your library:
 2. **Subject Layer:** Face detection, eye-tracking (open/closed), and smile detection (MediaPipe).
 3. **Aesthetic Layer:** High-level "keeper" scoring using a local **CLIP-based AI model**.
 
+## 🛠 Development Setup
+- **Python:** 3.12+
+- **Package manager:** [uv](https://docs.astral.sh/uv/) (recommended)
+- **Install:** `uv sync` — creates a virtual environment and installs dependencies from `pyproject.toml`
+- **Run tests:** `uv run pytest`
+- **CLI:** `uv run phaicull --help` or `uv run phaicull scan <folder>`
+
 ## 🛠 Tech Stack
 - **Core:** Python 3.12+ (OpenCV, NumPy, MediaPipe, ONNX)
 - **Database:** SQLite (One database per project/folder)
