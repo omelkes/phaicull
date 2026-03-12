@@ -12,10 +12,6 @@ from pathlib import Path
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
-# Default config filename
-CONFIG_FILENAME = "phaicull.toml"
-
-
 class ThresholdsConfig(BaseModel):
     """Thresholds for blur and brightness metrics (0–1 normalized)."""
 

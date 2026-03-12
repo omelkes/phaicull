@@ -129,6 +129,7 @@ Try and decide the best result
 - [ ] Keep TODO aligned with actual code structure
 - [ ] Move completed tasks into CHANGELOG or release notes
 - [ ] **Schema pragmatism:** start denormalized, refactor after Sprints if needed
+ - [x] Fix `schema_version` numeric ordering bug in migrations (TEXT vs integer ordering)
 
 
 

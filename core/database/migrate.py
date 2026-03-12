@@ -64,7 +64,11 @@ def _validate_schema_version_table(conn: sqlite3.Connection) -> None:
 def _get_current_version(conn: sqlite3.Connection) -> str | None:
     """Return the current schema version, or None if schema_version table doesn't exist."""
     try:
-        cursor = conn.execute("SELECT version FROM schema_version ORDER BY version DESC LIMIT 1")
+        cursor = conn.execute(
+            "SELECT version FROM schema_version "
+            "ORDER BY CAST(version AS INTEGER) DESC "
+            "LIMIT 1"
+        )
         row = cursor.fetchone()
         return row[0] if row else None
     except sqlite3.OperationalError:

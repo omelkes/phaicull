@@ -182,3 +182,31 @@ def test_migrate_registry_idempotent(tmp_path: Path) -> None:
     v1 = migrate_registry(db_path)
     v2 = migrate_registry(db_path)
     assert v1 == v2 == "001"
+
+
+def test_get_schema_version_uses_numeric_ordering(tmp_path: Path) -> None:
+    """get_schema_version returns highest numeric version, not lexicographic max."""
+    db_path = tmp_path / "versions.db"
+    conn = sqlite3.connect(str(db_path))
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute(
+        "CREATE TABLE schema_version ("
+        "version TEXT PRIMARY KEY, "
+        "description TEXT NOT NULL, "
+        "applied_at TEXT NOT NULL"
+        ")"
+    )
+    conn.execute(
+        "INSERT INTO schema_version (version, description, applied_at) "
+        "VALUES ('9', 'v9', '2024-01-01T00:00:00Z')"
+    )
+    conn.execute(
+        "INSERT INTO schema_version (version, description, applied_at) "
+        "VALUES ('10', 'v10', '2024-01-02T00:00:00Z')"
+    )
+    conn.commit()
+    conn.close()
+
+    # Lexicographically, "9" > "10", but numerically 9 < 10.
+    # We expect the function to honor numeric ordering and return "10".
+    assert get_schema_version(db_path) == "10"
