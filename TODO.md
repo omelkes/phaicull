@@ -44,9 +44,9 @@
 - [x] **Progress Reporting Contract:** Decide standard way (stdout or status table in DB) to report % completion for UI progress bars. See `docs/progress_contract.md`.
 
 ### 2. Database Update
-- [ ] **Database:** Extend SQLite schema to store `file_path`, `hash`, `blur_score`, `brightness_score`.
-- [ ] **Schema version wiring:** Update `schema_version` table (e.g., to `v2` or apply migration).
-- [ ] **DAO metrics:** Add `insert_metric(conn, file_id, metric_name, value_real, value_text)` (or upsert) in dao.py. All analyzer output is persisted via this method.
+- [x] **Database:** Extend SQLite schema to store `file_path`, `hash`, `blur_score`, `brightness_score`. Schema 002 already supports these via `files` (file_path, content_hash) and `metrics` (generic key-value). Migration 003 adds `idx_metrics_metric_name`.
+- [x] **Schema version wiring:** Update `schema_version` table (e.g., to `v2` or apply migration). Migration 003 bumps version to "003" via existing runner.
+- [x] **DAO metrics:** Add `insert_metric(conn, file_id, metric_name, value_real, value_text)` (or upsert) in dao.py. All analyzer output is persisted via this method.
 
 ### 3. Infrastructure & Pre-processing (The Loader phase)
 - [ ] **Format Support:** Add basic JPG/PNG + **HEIC** support (essential for iPhone photos).

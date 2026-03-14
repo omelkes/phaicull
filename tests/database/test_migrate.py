@@ -22,7 +22,7 @@ def test_migrate_creates_db_and_schema_version(tmp_path: Path) -> None:
     version = migrate(db_path)
 
     assert db_path.exists()
-    assert version == "002"
+    assert version == "003"
 
 
 def test_migrate_idempotent(tmp_path: Path) -> None:
@@ -31,7 +31,7 @@ def test_migrate_idempotent(tmp_path: Path) -> None:
     v1 = migrate(db_path)
     v2 = migrate(db_path)
 
-    assert v1 == v2 == "002"
+    assert v1 == v2 == "003"
 
 
 def test_get_schema_version_returns_none_for_missing_db(tmp_path: Path) -> None:
@@ -44,7 +44,7 @@ def test_get_schema_version_returns_version_after_migrate(tmp_path: Path) -> Non
     """get_schema_version returns current version after migrate."""
     db_path = tmp_path / "test.db"
     migrate(db_path)
-    assert get_schema_version(db_path) == "002"
+    assert get_schema_version(db_path) == "003"
 
 
 def test_schema_version_table_has_correct_structure(tmp_path: Path) -> None:

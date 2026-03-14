@@ -89,6 +89,30 @@ def insert_file(
     return row[0] if row else 0
 
 
+# --- Project DB: metrics ---
+
+
+def insert_metric(
+    conn: sqlite3.Connection,
+    file_id: int,
+    metric_name: str,
+    *,
+    value_real: float | None = None,
+    value_text: str | None = None,
+) -> None:
+    """Insert or replace a metric row. Idempotent on (file_id, metric_name)."""
+    conn.execute(
+        """
+        INSERT INTO metrics (file_id, metric_name, value_real, value_text)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(file_id, metric_name) DO UPDATE SET
+            value_real=excluded.value_real,
+            value_text=excluded.value_text
+        """,
+        (file_id, metric_name, value_real, value_text),
+    )
+
+
 # --- Registry DB: projects ---
 
 
