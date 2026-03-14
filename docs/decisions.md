@@ -91,7 +91,7 @@ See [ADR-001](adr-001.md) for the full architecture decision record (CLI-first, 
 - Add `loguru` to `pyproject.toml` dependencies.
 - Use `logger.add(sys.stderr, format="...")` for interactive CLI.
 - For UI subprocess: add a sink with `serialize=True` or a custom serializer that emits JSON lines with `event`, `percent`, `current`, `message`, etc.
-- Define a **progress event schema** (to be documented in the Progress Reporting Contract in Sprint 1).
+- Define a **progress event schema** (documented in the Progress Reporting Contract; see `docs/progress_contract.md`).
 
 ---
 

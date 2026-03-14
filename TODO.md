@@ -37,11 +37,11 @@
 ## ⚙️ Sprint 1: Core Analyzer (The Junk Filter)
 
 ### 1. Contracts & Decisions First
-- [ ] **BaseAnalyzer wiring:** Confirm all Sprint 1 analyzers (Blur, Exposure, pHash) inherit from `BaseAnalyzer` before implementation begins.
-- [ ] **JSON Contract:** Document the exact JSON structure the UI will expect from a scan.
-- [ ] **Feature logging contract:** Define exact feature vector saved per image and version the feature schema (e.g., v1).
-- [ ] **Thumbnail Strategy:** Decide if thumbnails are stored as BLOBs in SQLite or as files in a `.cache` folder (Recommendation: `.cache` folder for DB performance).
-- [ ] **Progress Reporting Contract:** Decide standard way (stdout or status table in DB) to report % completion for UI progress bars.
+- [x] **BaseAnalyzer wiring:** Confirm all Sprint 1 analyzers (Blur, Exposure, pHash) inherit from `BaseAnalyzer` before implementation begins. See `core/analyzers/blur.py`, `core/analyzers/exposure.py`, `core/analyzers/duplicates.py`, and `core/analyzers/__init__.py#get_sprint1_analyzers`, plus `docs/analyzers_sprint1.md`.
+- [x] **JSON Contract:** Document the exact JSON structure the UI will expect from a scan. See `docs/json_contract_scan_v1.md`.
+- [x] **Feature logging contract:** Define exact feature vector saved per image and version the feature schema (e.g., v1). See `docs/features_schema_v1.md`.
+- [x] **Thumbnail Strategy:** Decide if thumbnails are stored as BLOBs in SQLite or as files in a `.cache` folder (Recommendation: `.cache` folder for DB performance). See `docs/thumbnails.md`.
+- [x] **Progress Reporting Contract:** Decide standard way (stdout or status table in DB) to report % completion for UI progress bars. See `docs/progress_contract.md`.
 
 ### 2. Database Update
 - [ ] **Database:** Extend SQLite schema to store `file_path`, `hash`, `blur_score`, `brightness_score`.
