@@ -1,0 +1,4 @@
+#
+# Git keep file for the local real-photo directory.
+# This directory is gitignored and intended for private, non-committed test data.
+#

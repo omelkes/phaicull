@@ -6,16 +6,22 @@ Per AGENTS.md Testing Standards: synthetic images, edge-case files, temp DBs.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Generator
 
+import sqlite3
 import pytest
 
 # Optional Pillow for image fixtures; skip image tests if not installed.
 try:
     from PIL import Image
+
     HAS_PILLOW = True
 except ImportError:
     HAS_PILLOW = False
+
+from core.database import migrate as db_migrate
+from core.database.connection import enable_wal
+from core.database.dao import ensure_project_db, ensure_registry_db
 
 
 # --- File / image fixtures ---
@@ -83,7 +89,6 @@ def temp_project_db_factory(tmp_path: Path) -> Callable[[], Path]:
         nonlocal counter
         counter += 1
         project_root = tmp_path / f"project_{counter}"
-        from core.database.dao import ensure_project_db
         return ensure_project_db(project_root)
 
     return factory
@@ -98,7 +103,67 @@ def temp_registry_db_factory(tmp_path: Path) -> Callable[[], Path]:
         nonlocal counter
         counter += 1
         base = tmp_path / f"base_{counter}"
-        from core.database.dao import ensure_registry_db
         return ensure_registry_db(base)
+
+    return factory
+
+
+@pytest.fixture
+def in_memory_project_db() -> Generator[sqlite3.Connection, None, None]:
+    """Project DB connection backed by an in-memory SQLite database.
+
+    Applies all project migrations so schema matches on-disk project DBs.
+    Intended for fast unit-style tests that still need real tables.
+    """
+    conn = sqlite3.connect(":memory:")
+    conn.row_factory = sqlite3.Row
+    enable_wal(conn)
+
+    migrations = db_migrate._list_migrations(db_migrate.MIGRATIONS_DIR)  # type: ignore[attr-defined]
+    for _, path in migrations:
+        sql = path.read_text()
+        db_migrate._execute_migration_sql(conn, sql)  # type: ignore[attr-defined]
+
+    try:
+        yield conn
+    finally:
+        conn.close()
+
+
+@pytest.fixture
+def project_db_connection_factory(
+    tmp_path: Path,
+) -> Callable[[str], sqlite3.Connection]:
+    """Factory for project DB connections with different backing modes.
+
+    Modes:
+    - \"memory\": in-memory SQLite with migrated project schema.
+    - \"temp\": on-disk project DB under pytest tmp_path (fresh per call).
+    """
+
+    counter = 0
+
+    def factory(kind: str = "temp") -> sqlite3.Connection:
+        nonlocal counter
+        if kind == "memory":
+            conn = sqlite3.connect(":memory:")
+            conn.row_factory = sqlite3.Row
+            enable_wal(conn)
+            migrations = db_migrate._list_migrations(db_migrate.MIGRATIONS_DIR)  # type: ignore[attr-defined]
+            for _, path in migrations:
+                sql = path.read_text()
+                db_migrate._execute_migration_sql(conn, sql)  # type: ignore[attr-defined]
+            return conn
+
+        if kind == "temp":
+            counter += 1
+            project_root = tmp_path / f"project_conn_{counter}"
+            db_path = ensure_project_db(project_root)
+            conn = sqlite3.connect(str(db_path))
+            conn.row_factory = sqlite3.Row
+            enable_wal(conn)
+            return conn
+
+        raise ValueError(f"Unknown project DB kind: {kind!r}")
 
     return factory
