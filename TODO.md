@@ -49,6 +49,8 @@
 - [x] **DAO metrics:** Add `insert_metric(conn, file_id, metric_name, value_real, value_text)` (or upsert) in dao.py. All analyzer output is persisted via this method.
 
 ### 3. Infrastructure & Pre-processing (The Loader phase)
+- [ ] **Decode on test environment:** how to handle database? Clear after each test run or use in-memory database or cleanup on demmand? Resarch and decide overall testing strategy for the project.
+- [ ] **Test project structure:** Create two directories: (1) `tests/fixtures/images/` — committed basic images for unit tests; (2) `.local-photos/` — gitignored directory for real photo testing/training. Add `.local-photos/*` and `!.local-photos/.gitkeep` to .gitignore. Create `.local-photos/.gitkeep`. Document both in README or docs. 
 - [ ] **Format Support:** Add basic JPG/PNG + **HEIC** support (essential for iPhone photos).
 - [ ] **MIME validation gate:** Call `core/utils/mime.py` at the start of every scan. Reject files that fail magic byte validation and log rejection to SQLite `status`.
 - [ ] **EXIF orientation:** Implement auto-orientation in `core/utils/exif.py`. Read EXIF orientation tag and rotate/flip image data before passing to any analyzer.
@@ -57,7 +59,6 @@
 - [ ] **Image load safety:** Verify image dimensions and file size before decode to prevent decompression bombs (per AGENTS.md). Reject and log oversized images.
 - [ ] **Path scope safety:** Ensure all scanned file paths stay within the scan folder root. Use Path.resolve(); reject or skip symlinks/paths that escape project scope.
 - [ ] **Benchmark Set:** Create a 'Ground Truth' folder with 10 blurry and 10 sharp photos to test algorithm accuracy locally.
-- [ ] **Test project structure:** Create two directories: (1) `tests/fixtures/images/` — committed basic images for unit tests; (2) `.local-photos/` — gitignored directory for real photo testing/training. Add `.local-photos/*` and `!.local-photos/.gitkeep` to .gitignore. Create `.local-photos/.gitkeep`. Document both in README or docs.
 
 ### 4. Core Analyzers (The Compute phase)
 - [ ] **Normalization Logic:** Implement utilities to normalize all metrics to comparable scales (0–1).
