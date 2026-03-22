@@ -5,6 +5,7 @@ Per ADR-001: standalone CLI, Typer app, rich for terminal output.
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 
 import typer
@@ -63,18 +64,25 @@ def scan(
         help="Path to phaicull.toml. Default: project root or folder.",
     ),
 ) -> None:
-    """Scan a folder for photos and compute metrics (blur, brightness, duplicates).
+    """Scan a folder for photos and compute metrics (blur, brightness, duplicates)."""
+    from core.scanner.pipeline import run_scan
 
-    Sprint 1 will implement full scan logic. This scaffold confirms the command structure.
-    """
     cfg = load_config(config_path)
-    console.print(f"Folder: {folder}")
-    console.print(f"Burst window: {cfg.burst_window_seconds}s")
+    console.print(f"[bold]Scanning:[/bold] {folder}")
     console.print(
-        "Heavy features: "
-        + ("enabled" if cfg.heavy_features_enabled else "disabled")
+        f"Loader limits: {cfg.loader.max_file_size_mb} MB, "
+        f"{cfg.loader.max_image_dimension}px max dimension"
     )
-    console.print("Full scan implementation in Sprint 1.")
+
+    summary = asyncio.run(run_scan(folder, cfg))
+
+    console.print("\n[bold green]Scan complete[/bold green]")
+    console.print(f"  Discovered: {summary.total_discovered}")
+    console.print(f"  Processed:  {summary.processed}")
+    if summary.load_failed:
+        console.print(f"  [yellow]Load failures:[/yellow] {summary.load_failed}")
+    if summary.analyzer_errors:
+        console.print(f"  [yellow]Analyzer errors:[/yellow] {summary.analyzer_errors}")
 
 
 def run() -> None:

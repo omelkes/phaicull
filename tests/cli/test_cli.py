@@ -43,19 +43,19 @@ def test_scan_requires_folder() -> None:
 
 
 def test_scan_with_valid_folder(tmp_path: Path) -> None:
-    """scan with existing folder runs (scaffold output)."""
+    """scan with existing folder runs and shows summary."""
     result = runner.invoke(app, ["scan", str(tmp_path)])
     assert result.exit_code == 0
     assert str(tmp_path) in result.output or tmp_path.name in result.output
-    assert "Burst window" in result.output
-    assert "Sprint 1" in result.output
+    assert "Scan complete" in result.output
+    assert "Discovered" in result.output
 
 
 def test_scan_with_config(tmp_path: Path) -> None:
-    """scan with --config loads config."""
+    """scan with --config loads config and uses loader limits."""
     config = tmp_path / "phaicull.toml"
     config.write_text(
-        "burst_window_seconds = 10.0\nheavy_features_enabled = true\n",
+        '[loader]\nmax_file_size_mb = 50.0\nmax_image_dimension = 10000\n',
         encoding="utf-8",
     )
     folder = tmp_path / "photos"
@@ -65,5 +65,5 @@ def test_scan_with_config(tmp_path: Path) -> None:
         ["scan", str(folder), "--config", str(config)],
     )
     assert result.exit_code == 0
-    assert "10.0" in result.output
-    assert "enabled" in result.output
+    assert "50.0 MB" in result.output
+    assert "10000" in result.output

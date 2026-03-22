@@ -8,3 +8,7 @@ heavy_features_enabled = false
 blur_min = 0.1
 brightness_min = 0.2
 brightness_max = 0.9
+
+[loader]
+max_file_size_mb = 200.0
+max_image_dimension = 30000

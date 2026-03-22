@@ -44,6 +44,25 @@ class ThresholdsConfig(BaseModel):
         return self
 
 
+class LoaderConfig(BaseModel):
+    """Safety limits for the image loader (decompression-bomb prevention)."""
+
+    max_file_size_mb: float = Field(
+        default=200.0,
+        gt=0.0,
+        description="Reject files larger than this (MB) before decoding.",
+    )
+    max_image_dimension: int = Field(
+        default=30000,
+        gt=0,
+        description="Reject images with width or height exceeding this (pixels).",
+    )
+
+    @property
+    def max_file_size_bytes(self) -> int:
+        return int(self.max_file_size_mb * 1_048_576)
+
+
 class Config(BaseModel):
     """Phaicull configuration."""
 
@@ -52,6 +71,10 @@ class Config(BaseModel):
     thresholds: ThresholdsConfig = Field(
         default_factory=ThresholdsConfig,
         description="Blur and brightness thresholds (0–1 normalized).",
+    )
+    loader: LoaderConfig = Field(
+        default_factory=LoaderConfig,
+        description="Image loader safety limits.",
     )
     burst_window_seconds: float = Field(
         default=5.0,

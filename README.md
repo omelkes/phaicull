@@ -35,6 +35,7 @@ Phaicull uses a multi-layered approach to analyze your library:
 **Test directories:**
 - `tests/fixtures/images/` — committed basic images for unit tests (CI, contributors)
 - `.local-photos/` — gitignored directory for real photo testing and model training (never committed)
+- `.local-photos/benchmark/blurry/` and `../sharp/` — several hand-picked photos for blur accuracy checks. These are local test photos for development and testing. Do not commit this directory to the repository.
 
 ## 🛠 Tech Stack
 - **Core:** Python 3.12+ (OpenCV, NumPy, MediaPipe, ONNX)

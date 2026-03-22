@@ -52,6 +52,17 @@ test suite, with a focus on the Loader phase.
     - Training and validating future models on realistic data.
   - Developers are responsible for populating this folder locally; no sample photos are provided.
 
+### Benchmark set
+
+A ground-truth benchmark set lives under `.local-photos/benchmark/`:
+
+- `.local-photos/benchmark/blurry/` — 10 clearly blurry photos (hand-picked).
+- `.local-photos/benchmark/sharp/` — 10 clearly sharp photos (hand-picked).
+
+This set is used to validate blur detection accuracy after implementing analyzers.
+Developers populate it with their own photos; no sample images are provided.
+The directory is gitignored like the rest of `.local-photos/`.
+
 This hybrid approach keeps the default test suite fast and deterministic, while still supporting
 realistic, on‑disk debugging and long‑running experiments during Loader and model development.
 

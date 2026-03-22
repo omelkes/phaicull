@@ -51,14 +51,14 @@
 ### 3. Infrastructure & Pre-processing (The Loader phase)
 - [x] **Decode on test environment:** how to handle database? Clear after each test run or use in-memory database or cleanup on demmand? Resarch and decide overall testing strategy for the project.
 - [x] **Test project structure:** Create two directories: (1) `tests/fixtures/images/` — committed basic images for unit tests; (2) `.local-photos/` — gitignored directory for real photo testing/training. Add `.local-photos/*` and `!.local-photos/.gitkeep` to .gitignore. Create `.local-photos/.gitkeep`. Document both in README or docs. 
-- [ ] **Format Support:** Add basic JPG/PNG + **HEIC** support (essential for iPhone photos).
-- [ ] **MIME validation gate:** Call `core/utils/mime.py` at the start of every scan. Reject files that fail magic byte validation and log rejection to SQLite `status`.
-- [ ] **EXIF orientation:** Implement auto-orientation in `core/utils/exif.py`. Read EXIF orientation tag and rotate/flip image data before passing to any analyzer.
-- [ ] **High-Perf Image Loader:** Implement threaded/multiprocess image loading (using `ProcessPoolExecutor`).
-- [ ] **Brain/Brawn pipeline:** Implement scan orchestration: Brain handles file-walking, I/O, and batch DB writes; Brawn (ProcessPoolExecutor) runs image loading and analyzers. Pass Path objects; never raw bytes between processes.
-- [ ] **Image load safety:** Verify image dimensions and file size before decode to prevent decompression bombs (per AGENTS.md). Reject and log oversized images.
-- [ ] **Path scope safety:** Ensure all scanned file paths stay within the scan folder root. Use Path.resolve(); reject or skip symlinks/paths that escape project scope.
-- [ ] **Benchmark Set:** Create a 'Ground Truth' folder with 10 blurry and 10 sharp photos to test algorithm accuracy locally.
+- [x] **Format Support:** Add basic JPG/PNG + **HEIC** support (essential for iPhone photos). Runtime deps: `pillow`, `pillow-heif`, `opencv-python-headless`, `numpy`. HEIC registered via `pillow_heif.register_heif_opener()`. See `core/loader/image_loader.py`.
+- [x] **MIME validation gate:** Call `core/utils/mime.py` at the start of every scan. Reject files that fail magic byte validation and log rejection to SQLite `status`. Wired into `core/scanner/walker.py` via `is_supported_image()`.
+- [x] **EXIF orientation:** Implement auto-orientation in `core/utils/exif.py`. Read EXIF orientation tag and rotate/flip image data before passing to any analyzer. Uses `PIL.ImageOps.exif_transpose()`.
+- [x] **High-Perf Image Loader:** Implement threaded/multiprocess image loading (using `ProcessPoolExecutor`). See `core/scanner/pipeline.py` (Brain dispatches to Brawn via `loop.run_in_executor`).
+- [x] **Brain/Brawn pipeline:** Implement scan orchestration: Brain handles file-walking, I/O, and batch DB writes; Brawn (ProcessPoolExecutor) runs image loading and analyzers. Pass Path objects; never raw bytes between processes. See `core/scanner/` package.
+- [x] **Image load safety:** Verify image dimensions and file size before decode to prevent decompression bombs (per AGENTS.md). Reject and log oversized images. Config: `loader.max_file_size_mb`, `loader.max_image_dimension`. See `core/loader/image_loader.py`.
+- [x] **Path scope safety:** Ensure all scanned file paths stay within the scan folder root. Use Path.resolve(); reject or skip symlinks/paths that escape project scope. See `core/utils/path_safety.py`.
+- [x] **Benchmark Set:** Create a 'Ground Truth' folder with 10 blurry and 10 sharp photos to test algorithm accuracy locally. Convention: `.local-photos/benchmark/blurry/` and `.../sharp/`. See `docs/testing_strategy.md`.
 
 ### 4. Core Analyzers (The Compute phase)
 - [ ] **Normalization Logic:** Implement utilities to normalize all metrics to comparable scales (0–1).
