@@ -132,6 +132,15 @@ Try and decide the best result
 - [ ] **RAW Support:** Integrate `rawpy` for professional camera support.
 
 
+## 🐞 Bugs / Tech Debt (found during 2026-07-03 code review)
+- [ ] **Analyzer errors not counted:** `core/scanner/worker.py` catches analyzer exceptions but doesn't record them in `FileResult`; `ScanSummary.analyzer_errors` only counts DB-write failures. CLI reports "0 analyzer errors" even when every analyzer raises (verified via smoke scan).
+- [ ] **`skipped_mime` never incremented:** `ScanSummary.skipped_mime` exists but `discover_files()` doesn't report MIME-rejected counts back. Also, MIME-rejected files are only debug-logged — they never get a `status` row in SQLite, contradicting the TODO item "log rejection to SQLite status".
+- [ ] **Rescan wipes `group_id`:** `insert_file()` upsert always overwrites `group_id` with the passed value (`None` from the pipeline), so a future grouping pass would be erased by any rescan. Consider `COALESCE(excluded.group_id, group_id)` or a separate `update_group` DAO method.
+- [ ] **Double-decode design flaw:** `worker.process_file()` fully decodes the image (`load_image`) only to discard the array; each analyzer receives a `Path` and would re-decode. Decide: pass the decoded ndarray to analyzers within the Brawn process (contract change — needs ASK per AGENTS.md), or accept N decodes per file.
+- [ ] **Worker pool size hardcoded:** `pipeline.py` caps `max_workers` at 4; should use `os.cpu_count()` (with a config override).
+- [ ] **Supported-format mismatch:** `core/utils/mime.py` accepts GIF and WebP, but docs/TODO say JPG/PNG/HEIC. Align the gate with the documented supported set (or document GIF/WebP as supported).
+- [ ] **No linter/type-checker/CI:** AGENTS.md mandates strict typing, but there's no `ruff`, `mypy`, or GitHub Actions workflow. Add dev tooling + CI running pytest.
+
 ## Ongoing
 - [ ] Keep TODO aligned with actual code structure
 - [ ] Move completed tasks into CHANGELOG or release notes
