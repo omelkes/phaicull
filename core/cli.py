@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 from pathlib import Path
+from typing import Annotated
 
 import typer
 from rich.console import Console
@@ -46,23 +47,25 @@ def main(
 
 @app.command()
 def scan(
-    folder: Path = typer.Argument(
-        ...,
-        path_type=Path,
-        exists=True,
-        file_okay=False,
-        dir_okay=True,
-        resolve_path=True,
-        help="Photo folder to scan.",
-    ),
-    config_path: Path | None = typer.Option(
-        None,
-        "--config",
-        "-c",
-        path_type=Path,
-        exists=True,
-        help="Path to phaicull.toml. Default: project root or folder.",
-    ),
+    folder: Annotated[
+        Path,
+        typer.Argument(
+            exists=True,
+            file_okay=False,
+            dir_okay=True,
+            resolve_path=True,
+            help="Photo folder to scan.",
+        ),
+    ],
+    config_path: Annotated[
+        Path | None,
+        typer.Option(
+            "--config",
+            "-c",
+            exists=True,
+            help="Path to phaicull.toml. Default: project root or folder.",
+        ),
+    ] = None,
 ) -> None:
     """Scan a folder for photos and compute metrics (blur, brightness, duplicates)."""
     from core.scanner.pipeline import run_scan
@@ -79,6 +82,8 @@ def scan(
     console.print("\n[bold green]Scan complete[/bold green]")
     console.print(f"  Discovered: {summary.total_discovered}")
     console.print(f"  Processed:  {summary.processed}")
+    if summary.skipped_mime:
+        console.print(f"  [yellow]Skipped (not an image):[/yellow] {summary.skipped_mime}")
     if summary.load_failed:
         console.print(f"  [yellow]Load failures:[/yellow] {summary.load_failed}")
     if summary.analyzer_errors:

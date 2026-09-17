@@ -1,6 +1,7 @@
 """Tests for BaseAnalyzer contract and AnalyzerResult.
 
-Per AGENTS.md: BaseAnalyzer defines the analyzer interface.
+Per AGENTS.md: BaseAnalyzer defines the analyzer interface (v2: decoded
+image array + source path in, AnalyzerResult | None out).
 Concrete analyzers (Blur, Exposure, pHash) require 4-category tests — those are Sprint 1.
 """
 
@@ -8,11 +9,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import numpy as np
 import pytest
 from pydantic import ValidationError
 
 from core.analyzers.base import AnalyzerResult, BaseAnalyzer
-
 
 # --- Abstract class contract ---
 
@@ -30,7 +31,7 @@ def test_subclass_without_implementations_raises() -> None:
         pass
 
     with pytest.raises(TypeError, match="abstract"):
-        IncompleteAnalyzer()
+        IncompleteAnalyzer()  # type: ignore[abstract]
 
 
 # --- AnalyzerResult validation ---
@@ -74,64 +75,70 @@ def test_analyzer_result_both_values() -> None:
 
 
 class StubAnalyzer(BaseAnalyzer):
-    """Minimal concrete analyzer for contract tests."""
+    """Minimal concrete analyzer for contract tests.
+
+    Returns mean pixel value so idempotency can be verified against real data.
+    """
 
     @property
     def metric_name(self) -> str:
         return "stub_score"
 
-    def analyze(self, path: Path) -> AnalyzerResult | None:
-        if not path.exists():
+    def analyze(self, image: np.ndarray, path: Path) -> AnalyzerResult | None:
+        if image.size == 0:
             return None
-        # Return result for any existing file (contract test only)
         return AnalyzerResult(
             metric_name=self.metric_name,
-            value_real=1.0,
+            value_real=float(image.mean()),
             value_text=None,
         )
 
 
-def test_stub_analyzer_implements_contract(synthetic_valid_image: Path) -> None:
-    """Concrete analyzer returns AnalyzerResult for valid input."""
+def _make_image(width: int = 16, height: int = 16, value: int = 128) -> np.ndarray:
+    return np.full((height, width, 3), value, dtype=np.uint8)
+
+
+def test_stub_analyzer_implements_contract(tmp_path: Path) -> None:
+    """Concrete analyzer returns AnalyzerResult for valid decoded image."""
     analyzer = StubAnalyzer()
-    result = analyzer.analyze(synthetic_valid_image)
+    result = analyzer.analyze(_make_image(), tmp_path / "img.jpg")
     assert result is not None
     assert isinstance(result, AnalyzerResult)
     assert result.metric_name == "stub_score"
-    assert result.value_real == 1.0
+    assert result.value_real == 128.0
 
 
-def test_stub_analyzer_returns_none_for_missing_file(tmp_path: Path) -> None:
-    """Concrete analyzer returns None for non-existent path — no crash."""
+def test_stub_analyzer_returns_none_for_empty_image(tmp_path: Path) -> None:
+    """Concrete analyzer returns None for degenerate input — no crash."""
     analyzer = StubAnalyzer()
-    missing = tmp_path / "does_not_exist.jpg"
-    assert not missing.exists()
-    result = analyzer.analyze(missing)
+    empty = np.zeros((0, 0, 3), dtype=np.uint8)
+    result = analyzer.analyze(empty, tmp_path / "img.jpg")
     assert result is None
 
 
-def test_stub_analyzer_handles_zero_byte_file(zero_byte_file: Path) -> None:
-    """Concrete analyzer can return result or None; contract allows either."""
+def test_stub_analyzer_handles_1x1_image(tmp_path: Path) -> None:
+    """Edge case: 1x1 pixel image is valid input."""
     analyzer = StubAnalyzer()
-    result = analyzer.analyze(zero_byte_file)
-    # Stub returns result for any existing path; real analyzers may return None for corrupt
+    result = analyzer.analyze(_make_image(1, 1, value=200), tmp_path / "tiny.png")
+    assert result is not None
+    assert result.value_real == 200.0
+
+
+def test_stub_analyzer_handles_extreme_aspect_ratio(tmp_path: Path) -> None:
+    """Edge case: extreme aspect ratio image is valid input."""
+    analyzer = StubAnalyzer()
+    result = analyzer.analyze(_make_image(1000, 1), tmp_path / "wide.png")
     assert result is not None
     assert result.metric_name == "stub_score"
 
 
-def test_stub_analyzer_handles_non_image_file(non_image_file: Path) -> None:
-    """Contract: Path in, AnalyzerResult | None out. Non-image is valid Path input."""
+def test_stub_analyzer_idempotent(tmp_path: Path) -> None:
+    """Same image yields same result (idempotent)."""
     analyzer = StubAnalyzer()
-    result = analyzer.analyze(non_image_file)
-    assert result is not None  # Stub treats any existing file as ok
-    assert isinstance(result, AnalyzerResult)
-
-
-def test_stub_analyzer_idempotent(synthetic_valid_image: Path) -> None:
-    """Same path yields same result (idempotent)."""
-    analyzer = StubAnalyzer()
-    r1 = analyzer.analyze(synthetic_valid_image)
-    r2 = analyzer.analyze(synthetic_valid_image)
+    image = _make_image(value=77)
+    path = tmp_path / "img.jpg"
+    r1 = analyzer.analyze(image, path)
+    r2 = analyzer.analyze(image, path)
     assert r1 is not None and r2 is not None
     assert r1.metric_name == r2.metric_name
     assert r1.value_real == r2.value_real

@@ -7,8 +7,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from core.config import Config, ThresholdsConfig, load_config
-
+from core.config import Config, ScannerConfig, ThresholdsConfig, load_config
 
 # --- Default config ---
 
@@ -86,6 +85,35 @@ blur_min = 0.05
     assert cfg.thresholds.blur_min == 0.05
     assert cfg.thresholds.brightness_min == 0.2
     assert cfg.burst_window_seconds == 5.0
+
+
+# --- Scanner section ---
+
+
+def test_scanner_defaults_to_auto_workers() -> None:
+    """scanner.max_workers defaults to None (auto = CPU count)."""
+    cfg = Config()
+    assert cfg.scanner.max_workers is None
+
+
+def test_load_config_scanner_section(tmp_path: Path) -> None:
+    """[scanner] max_workers is loaded from TOML."""
+    toml = tmp_path / "phaicull.toml"
+    toml.write_text(
+        """
+[scanner]
+max_workers = 2
+""",
+        encoding="utf-8",
+    )
+    cfg = load_config(toml)
+    assert cfg.scanner.max_workers == 2
+
+
+def test_scanner_max_workers_must_be_positive() -> None:
+    """max_workers must be >= 1 when set."""
+    with pytest.raises(ValidationError):
+        ScannerConfig(max_workers=0)
 
 
 # --- Validation ---

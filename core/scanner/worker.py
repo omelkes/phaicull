@@ -1,7 +1,8 @@
 """Brawn worker — per-file image processing in a subprocess.
 
 Runs in ProcessPoolExecutor. Receives a Path, loads the image safely,
-runs all analyzers, and returns a FileResult. No DB access, no asyncio.
+runs all analyzers on the decoded array (decode once, analyze many),
+and returns a FileResult. No DB access, no asyncio.
 """
 
 from __future__ import annotations
@@ -23,6 +24,9 @@ class FileResult(BaseModel):
     content_hash: str | None = None
     status: str = "ok"
     metrics: list[AnalyzerResult] = Field(default_factory=list)
+    analyzer_errors: int = Field(
+        default=0, description="Number of analyzers that raised on this file."
+    )
 
 
 def _compute_content_hash(path: Path) -> str | None:
@@ -46,6 +50,9 @@ def process_file(
 ) -> FileResult:
     """Process a single image file: load, hash, analyze.
 
+    The image is decoded exactly once; the resulting BGR array is passed to
+    every analyzer (BaseAnalyzer contract v2).
+
     Designed to run in a subprocess via ProcessPoolExecutor.
     Never raises — all errors are captured in the returned FileResult.
     """
@@ -67,10 +74,11 @@ def process_file(
 
     for analyzer in analyzers:
         try:
-            metric = analyzer.analyze(file_path)
+            metric = analyzer.analyze(img, file_path)
             if metric is not None:
                 result.metrics.append(metric)
         except Exception:
+            result.analyzer_errors += 1
             logger.debug(
                 "Analyzer {} failed on {}", analyzer.metric_name, file_path
             )

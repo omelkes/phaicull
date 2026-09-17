@@ -5,10 +5,10 @@ Per AGENTS.md Testing Standards: synthetic images, edge-case files, temp DBs.
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Callable, Generator
-
 import sqlite3
+from collections.abc import Callable, Generator
+from pathlib import Path
+
 import pytest
 
 # Optional Pillow for image fixtures; skip image tests if not installed.
@@ -22,7 +22,6 @@ except ImportError:
 from core.database import migrate as db_migrate
 from core.database.connection import enable_wal
 from core.database.dao import ensure_project_db, ensure_registry_db
-
 
 # --- File / image fixtures ---
 

@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 import asyncio
-import sqlite3
 from pathlib import Path
 
-import pytest
 from PIL import Image
 
 from core.config import Config
@@ -29,13 +27,17 @@ def test_scan_small_directory(tmp_path: Path) -> None:
     assert summary.total_discovered == 2
     assert summary.processed == 2
     assert summary.load_failed == 0
+    assert summary.skipped_mime == 1  # notes.txt
 
     conn = open_project_connection(scan_root)
     try:
-        rows = conn.execute("SELECT file_path, status FROM files ORDER BY file_path").fetchall()
-        assert len(rows) == 2
-        statuses = {r["status"] for r in rows}
-        assert statuses == {"ok"}
+        statuses = {
+            r["file_path"].split("/")[-1]: r["status"]
+            for r in conn.execute("SELECT file_path, status FROM files").fetchall()
+        }
+        assert statuses["red.jpg"] == "ok"
+        assert statuses["green.png"] == "ok"
+        assert statuses["notes.txt"] == "skipped_invalid_mime"
     finally:
         conn.close()
 
@@ -105,5 +107,58 @@ def test_scan_idempotent(tmp_path: Path) -> None:
     try:
         count = conn.execute("SELECT COUNT(*) FROM files").fetchone()[0]
         assert count == 1
+    finally:
+        conn.close()
+
+
+def test_analyzer_errors_reported_in_summary(tmp_path: Path) -> None:
+    """Stub analyzers raise NotImplementedError; summary must count the failures."""
+    scan_root = tmp_path / "photos"
+    scan_root.mkdir()
+    Image.new("RGB", (8, 8)).save(scan_root / "img.jpg", "JPEG")
+
+    summary = asyncio.run(run_scan(scan_root, Config()))
+
+    assert summary.processed == 1
+    assert summary.analyzer_errors == 3  # blur, exposure, phash stubs all raise
+
+
+def test_rescan_does_not_duplicate_mime_rejected(tmp_path: Path) -> None:
+    """MIME-rejected files get one status row, stable across rescans."""
+    scan_root = tmp_path / "photos"
+    scan_root.mkdir()
+    (scan_root / "notes.txt").write_text("not an image")
+    config = Config()
+
+    asyncio.run(run_scan(scan_root, config))
+    asyncio.run(run_scan(scan_root, config))
+
+    conn = open_project_connection(scan_root)
+    try:
+        rows = conn.execute(
+            "SELECT file_path, status FROM files WHERE status = 'skipped_invalid_mime'"
+        ).fetchall()
+        assert len(rows) == 1
+        assert rows[0]["file_path"].endswith("notes.txt")
+    finally:
+        conn.close()
+
+
+def test_scan_ignores_own_phaicull_db(tmp_path: Path) -> None:
+    """A rescan must not record the project's own phaicull/ data directory."""
+    scan_root = tmp_path / "photos"
+    scan_root.mkdir()
+    Image.new("RGB", (8, 8)).save(scan_root / "img.jpg", "JPEG")
+    config = Config()
+
+    asyncio.run(run_scan(scan_root, config))  # creates phaicull/phaicull.db
+    summary = asyncio.run(run_scan(scan_root, config))
+
+    assert summary.skipped_mime == 0
+
+    conn = open_project_connection(scan_root)
+    try:
+        rows = conn.execute("SELECT file_path FROM files").fetchall()
+        assert all("/phaicull/" not in r["file_path"] for r in rows)
     finally:
         conn.close()

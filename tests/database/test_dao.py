@@ -2,8 +2,6 @@
 
 from pathlib import Path
 
-import pytest
-
 from core.database.dao import (
     add_project,
     ensure_project_db,
@@ -56,7 +54,9 @@ def test_open_project_connection_insert_file(tmp_path: Path) -> None:
         fid = insert_file(conn, "/photos/img1.jpg", content_hash="abc", status="ok")
         conn.commit()
         assert fid > 0
-        row = conn.execute("SELECT file_path, content_hash, status FROM files WHERE id = ?", (fid,)).fetchone()
+        row = conn.execute(
+            "SELECT file_path, content_hash, status FROM files WHERE id = ?", (fid,)
+        ).fetchone()
         assert row is not None
         assert row[0] == "/photos/img1.jpg"
         assert row[1] == "abc"
@@ -90,6 +90,50 @@ def test_add_project_idempotent(tmp_path: Path) -> None:
         projects = list_projects(conn)
         assert len(projects) == 1
         assert projects[0]["name"] == "Second"
+    finally:
+        conn.close()
+
+
+def test_insert_file_rescan_preserves_group_id(tmp_path: Path) -> None:
+    """Upsert with group_id=None (a rescan) must not wipe an existing group_id."""
+    project_root = tmp_path / "photos"
+    conn = open_project_connection(project_root)
+    try:
+        conn.execute("INSERT INTO groups DEFAULT VALUES")
+        group_id = conn.execute("SELECT id FROM groups").fetchone()[0]
+
+        fid = insert_file(conn, "/photos/burst1.jpg", status="ok", group_id=group_id)
+        conn.commit()
+
+        # Rescan: same path, no group information
+        fid2 = insert_file(conn, "/photos/burst1.jpg", content_hash="new", status="ok")
+        conn.commit()
+
+        assert fid == fid2
+        row = conn.execute(
+            "SELECT group_id, content_hash FROM files WHERE id = ?", (fid,)
+        ).fetchone()
+        assert row["group_id"] == group_id  # preserved
+        assert row["content_hash"] == "new"  # still updated
+    finally:
+        conn.close()
+
+
+def test_insert_file_can_set_new_group_id(tmp_path: Path) -> None:
+    """Upsert with a non-NULL group_id still updates it (grouping pass)."""
+    project_root = tmp_path / "photos"
+    conn = open_project_connection(project_root)
+    try:
+        conn.execute("INSERT INTO groups DEFAULT VALUES")
+        conn.execute("INSERT INTO groups DEFAULT VALUES")
+        g1, g2 = [r[0] for r in conn.execute("SELECT id FROM groups ORDER BY id").fetchall()]
+
+        fid = insert_file(conn, "/photos/img.jpg", status="ok", group_id=g1)
+        insert_file(conn, "/photos/img.jpg", status="ok", group_id=g2)
+        conn.commit()
+
+        row = conn.execute("SELECT group_id FROM files WHERE id = ?", (fid,)).fetchone()
+        assert row["group_id"] == g2
     finally:
         conn.close()
 
@@ -172,7 +216,8 @@ def test_insert_metric_after_insert_file(tmp_path: Path) -> None:
         insert_metric(conn, fid, "phash", value_text="deadbeef")
         conn.commit()
         rows = conn.execute(
-            "SELECT metric_name, value_real, value_text FROM metrics WHERE file_id = ? ORDER BY metric_name",
+            "SELECT metric_name, value_real, value_text FROM metrics "
+            "WHERE file_id = ? ORDER BY metric_name",
             (fid,),
         ).fetchall()
         assert len(rows) == 3

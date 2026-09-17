@@ -7,6 +7,8 @@ image loading and analysis, then batch-writes results to the project DB.
 from __future__ import annotations
 
 import asyncio
+import os
+import sqlite3
 from concurrent.futures import ProcessPoolExecutor
 from functools import partial
 from pathlib import Path
@@ -22,6 +24,10 @@ from core.scanner.worker import FileResult, process_file
 
 BATCH_COMMIT_SIZE = 50
 
+# Status written to the files table for MIME-rejected files.
+# Stable value per docs/json_contract_scan_v1.md.
+STATUS_SKIPPED_INVALID_MIME = "skipped_invalid_mime"
+
 
 class ScanSummary(BaseModel):
     """Summary statistics from a completed scan."""
@@ -31,8 +37,14 @@ class ScanSummary(BaseModel):
     load_failed: int = 0
     analyzer_errors: int = 0
     skipped_mime: int = Field(
-        default=0, description="Files skipped by MIME gate during discovery."
+        default=0, description="Files rejected by the MIME gate during discovery."
     )
+
+
+def _resolve_max_workers(config: Config, file_count: int) -> int:
+    """Worker pool size: config override, else cpu_count; never more than files."""
+    workers = config.scanner.max_workers or os.cpu_count() or 1
+    return max(1, min(workers, file_count))
 
 
 async def run_scan(scan_root: Path, config: Config) -> ScanSummary:
@@ -44,65 +56,85 @@ async def run_scan(scan_root: Path, config: Config) -> ScanSummary:
     scan_root = scan_root.resolve()
     summary = ScanSummary()
 
-    files = discover_files(scan_root)
+    discovery = discover_files(scan_root)
+    files = discovery.valid
     summary.total_discovered = len(files)
+    summary.skipped_mime = len(discovery.rejected_mime)
 
-    if not files:
-        logger.info("No valid image files found in {}", scan_root)
+    if not files and not discovery.rejected_mime:
+        logger.info("No files found in {}", scan_root)
         return summary
 
     conn = open_project_connection(scan_root)
-    analyzers = get_sprint1_analyzers()
-    max_file_size_bytes = config.loader.max_file_size_bytes
-    max_dimension = config.loader.max_image_dimension
-
-    loop = asyncio.get_running_loop()
-    max_workers = max(1, (len(files) if len(files) < 4 else 4))
-
     try:
-        worker_fn = partial(
-            process_file,
-            analyzers=analyzers,
-            max_file_size_bytes=max_file_size_bytes,
-            max_dimension=max_dimension,
-        )
-        with ProcessPoolExecutor(max_workers=max_workers) as executor:
-            futures = [
-                loop.run_in_executor(executor, worker_fn, fp)
-                for fp in files
-            ]
+        _write_mime_rejections(conn, discovery.rejected_mime)
 
-            pending = 0
-            for i, coro in enumerate(asyncio.as_completed(futures)):
-                result: FileResult = await coro
-                _write_result_to_db(conn, result, summary)
-                pending += 1
-
-                if pending >= BATCH_COMMIT_SIZE:
-                    conn.commit()
-                    pending = 0
-                    logger.info(
-                        "Progress: {}/{} files processed",
-                        i + 1,
-                        summary.total_discovered,
-                    )
-
-            if pending > 0:
-                conn.commit()
+        if files:
+            await _process_files(conn, files, config, summary)
     finally:
         conn.close()
 
     logger.info(
-        "Scan complete: {} discovered, {} processed, {} load failures",
+        "Scan complete: {} discovered, {} processed, {} load failures, "
+        "{} analyzer errors, {} MIME-rejected",
         summary.total_discovered,
         summary.processed,
         summary.load_failed,
+        summary.analyzer_errors,
+        summary.skipped_mime,
     )
     return summary
 
 
+async def _process_files(
+    conn: sqlite3.Connection,
+    files: list[Path],
+    config: Config,
+    summary: ScanSummary,
+) -> None:
+    """Dispatch files to Brawn workers and batch-write results."""
+    analyzers = get_sprint1_analyzers()
+    loop = asyncio.get_running_loop()
+    max_workers = _resolve_max_workers(config, len(files))
+
+    worker_fn = partial(
+        process_file,
+        analyzers=analyzers,
+        max_file_size_bytes=config.loader.max_file_size_bytes,
+        max_dimension=config.loader.max_image_dimension,
+    )
+    with ProcessPoolExecutor(max_workers=max_workers) as executor:
+        futures = [loop.run_in_executor(executor, worker_fn, fp) for fp in files]
+
+        pending = 0
+        for i, coro in enumerate(asyncio.as_completed(futures)):
+            result: FileResult = await coro
+            _write_result_to_db(conn, result, summary)
+            pending += 1
+
+            if pending >= BATCH_COMMIT_SIZE:
+                conn.commit()
+                pending = 0
+                logger.info(
+                    "Progress: {}/{} files processed",
+                    i + 1,
+                    summary.total_discovered,
+                )
+
+        if pending > 0:
+            conn.commit()
+
+
+def _write_mime_rejections(conn: sqlite3.Connection, rejected: list[Path]) -> None:
+    """Record MIME-rejected files in the files table with a skipped status."""
+    for path in rejected:
+        insert_file(conn, str(path), status=STATUS_SKIPPED_INVALID_MIME)
+    if rejected:
+        conn.commit()
+
+
 def _write_result_to_db(
-    conn: "sqlite3.Connection",  # noqa: F821
+    conn: sqlite3.Connection,
     result: FileResult,
     summary: ScanSummary,
 ) -> None:
@@ -119,6 +151,7 @@ def _write_result_to_db(
         return
 
     summary.processed += 1
+    summary.analyzer_errors += result.analyzer_errors
 
     for metric in result.metrics:
         try:

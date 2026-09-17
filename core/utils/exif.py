@@ -7,8 +7,8 @@ handles all 8 EXIF orientation values.
 
 from __future__ import annotations
 
-from PIL import Image, ImageOps
 from loguru import logger
+from PIL import Image, ImageOps
 
 
 def auto_orient(img: Image.Image) -> Image.Image:

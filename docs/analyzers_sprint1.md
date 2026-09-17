@@ -12,6 +12,10 @@ Per `AGENTS.md`, each analyzer:
 - Inherits from `BaseAnalyzer`.
 - Computes exactly **one** metric.
 - Is idempotent and safe to re-run.
+- Receives the **decoded BGR image array** plus source `Path` (contract v2,
+  DEC-007 in `docs/decisions.md`): the Brawn worker decodes each file once and
+  shares the array with all analyzers. Analyzers must not re-decode from disk
+  or mutate the shared array.
 
 ### Analyzer → Metric Mapping
 

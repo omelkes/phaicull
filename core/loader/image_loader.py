@@ -1,6 +1,7 @@
 """Safe image loading for Phaicull.
 
-Handles JPG, PNG, and HEIC via Pillow + pillow-heif. Applies decompression-
+Handles JPG, PNG, GIF, WebP (Pillow built-ins) and HEIC (via pillow-heif) —
+the same set accepted by the MIME gate in core/utils/mime.py. Applies decompression-
 bomb checks (file size and pixel dimensions) before full decode, then
 EXIF auto-orientation, and finally conversion to a NumPy BGR array for
 OpenCV-based analyzers.
@@ -62,7 +63,7 @@ def load_image(
         return None
 
     try:
-        img = Image.open(path)
+        img: Image.Image = Image.open(path)
     except Exception:
         logger.debug("Pillow cannot open file: {}", path)
         return None

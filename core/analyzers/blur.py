@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import numpy as np
+
 from core.analyzers import AnalyzerResult, BaseAnalyzer
 
 
@@ -16,10 +18,11 @@ class BlurAnalyzer(BaseAnalyzer):
     def metric_name(self) -> str:
         return "blur_score"
 
-    def analyze(self, path: Path) -> AnalyzerResult | None:
+    def analyze(self, image: np.ndarray, path: Path) -> AnalyzerResult | None:
         """Placeholder implementation for Sprint 1 wiring.
 
         The compute logic will be added under the Core Analyzers phase.
         """
-        raise NotImplementedError("BlurAnalyzer.analyze will be implemented in Sprint 1 Core Analyzers.")
-
+        raise NotImplementedError(
+            "BlurAnalyzer.analyze will be implemented in Sprint 1 Core Analyzers."
+        )

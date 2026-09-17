@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from PIL import Image
 
 from core.analyzers import get_sprint1_analyzers
@@ -33,6 +34,59 @@ def test_process_valid_jpeg(tmp_path: Path) -> None:
     assert result.status == "ok"
     assert result.content_hash is not None
     assert len(result.content_hash) == 64  # SHA-256 hex
+
+
+def test_analyzer_failures_are_counted(tmp_path: Path) -> None:
+    """Analyzers that raise are counted in FileResult.analyzer_errors.
+
+    The Sprint 1 stubs all raise NotImplementedError, so each of the
+    three must be recorded as a failure — not silently dropped.
+    """
+    path = tmp_path / "photo.jpg"
+    Image.new("RGB", (32, 32)).save(path, "JPEG")
+
+    result = process_file(
+        path,
+        get_sprint1_analyzers(),
+        max_file_size_bytes=MAX_SIZE,
+        max_dimension=MAX_DIM,
+    )
+
+    assert result.status == "ok"
+    assert result.analyzer_errors == 3
+    assert result.metrics == []
+
+
+def test_analyzers_receive_decoded_image(tmp_path: Path) -> None:
+    """Worker passes the decoded BGR array to analyzers (decode-once contract)."""
+    import numpy as np
+
+    from core.analyzers.base import AnalyzerResult, BaseAnalyzer
+
+    class RecordingAnalyzer(BaseAnalyzer):
+        @property
+        def metric_name(self) -> str:
+            return "mean_pixel"
+
+        def analyze(self, image: np.ndarray, path: Path) -> AnalyzerResult | None:
+            assert image.ndim == 3 and image.shape[2] == 3
+            assert image.dtype == np.uint8
+            return AnalyzerResult(metric_name=self.metric_name, value_real=float(image.mean()))
+
+    path = tmp_path / "gray.png"
+    Image.new("RGB", (16, 16), color=(50, 50, 50)).save(path, "PNG")
+
+    result = process_file(
+        path,
+        [RecordingAnalyzer()],
+        max_file_size_bytes=MAX_SIZE,
+        max_dimension=MAX_DIM,
+    )
+
+    assert result.status == "ok"
+    assert result.analyzer_errors == 0
+    assert len(result.metrics) == 1
+    assert result.metrics[0].value_real == pytest.approx(50.0, abs=2.0)
 
 
 def test_process_corrupted_image(tmp_path: Path) -> None:

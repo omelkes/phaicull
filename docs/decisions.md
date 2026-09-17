@@ -265,3 +265,54 @@ See `docs/testing_strategy.md` for details.
 - Test data directories:
   - `tests/fixtures/images/` — committed fixtures (kept in Git via `.gitkeep`).
   - `.local-photos/` — gitignored root for local photos (kept via `.gitkeep`; patterns in `.gitignore`).
+
+---
+
+## DEC-007: Analyzer Contract v2 — Decoded Image Input (Decode Once)
+
+**Status:** Decided  
+**Date:** 2026-07-03  
+**Scope:** `BaseAnalyzer` interface (Stable API), Brawn worker.
+
+### Decision
+
+`BaseAnalyzer.analyze` receives the **decoded BGR image array** plus the source `Path`:
+
+```python
+def analyze(self, image: np.ndarray, path: Path) -> AnalyzerResult | None: ...
+```
+
+The Brawn worker (`core/scanner/worker.py`) decodes each file exactly once via
+`load_image()` and shares the array with all analyzers in the same process.
+Analyzers must not re-read image data from disk and must not mutate the shared array.
+
+- **Alternatives:** (A) keep `analyze(path)` and let each analyzer decode — N decodes
+  per file; (B) pass raw bytes — violates AGENTS.md memory-safety rule.
+- **Rationale:** With 3+ analyzers, per-analyzer decoding multiplies the most expensive
+  step of the scan and would break the "1k photos < 5 min" Sprint 1 target. The array
+  never crosses a process boundary (Paths still cross; decoding happens inside Brawn),
+  so AGENTS.md memory rules are preserved.
+
+### Versioning note
+
+This is a **contract change before any concrete analyzer existed** (all Sprint 1
+analyzers were stubs). No migration needed; contract is labeled v2 in
+`core/analyzers/base.py` docstrings.
+
+---
+
+## DEC-008: Supported Image Formats — Gate and Loader Alignment
+
+**Status:** Decided  
+**Date:** 2026-07-03  
+**Scope:** MIME gate (`core/utils/mime.py`), loader, docs.
+
+### Decision
+
+Supported formats are **JPEG, PNG, HEIC/HEIF, GIF, WebP** — exactly what the
+magic-byte gate accepts. Pillow decodes all five natively (HEIC via pillow-heif).
+
+- **Alternatives:** restrict the gate to JPG/PNG/HEIC as older docs stated.
+- **Rationale:** GIF/WebP support already worked end-to-end; removing formats would
+  be a behavior regression, while documenting them is purely additive. WebP is common
+  on Android devices — relevant for the target audience.

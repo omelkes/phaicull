@@ -2,8 +2,8 @@
 
 from core.analyzers.base import AnalyzerResult, BaseAnalyzer
 from core.analyzers.blur import BlurAnalyzer
-from core.analyzers.exposure import ExposureAnalyzer
 from core.analyzers.duplicates import DuplicatesAnalyzer
+from core.analyzers.exposure import ExposureAnalyzer
 
 __all__ = [
     "AnalyzerResult",

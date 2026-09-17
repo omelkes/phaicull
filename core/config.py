@@ -35,7 +35,7 @@ class ThresholdsConfig(BaseModel):
     )
 
     @model_validator(mode="after")
-    def brightness_min_lt_max(self) -> "ThresholdsConfig":
+    def brightness_min_lt_max(self) -> ThresholdsConfig:
         if self.brightness_min >= self.brightness_max:
             raise ValueError(
                 "brightness_min must be less than brightness_max "
@@ -63,6 +63,16 @@ class LoaderConfig(BaseModel):
         return int(self.max_file_size_mb * 1_048_576)
 
 
+class ScannerConfig(BaseModel):
+    """Settings for the scan pipeline (Brain/Brawn)."""
+
+    max_workers: int | None = Field(
+        default=None,
+        ge=1,
+        description="Worker process count for image analysis. None = use CPU count.",
+    )
+
+
 class Config(BaseModel):
     """Phaicull configuration."""
 
@@ -75,6 +85,10 @@ class Config(BaseModel):
     loader: LoaderConfig = Field(
         default_factory=LoaderConfig,
         description="Image loader safety limits.",
+    )
+    scanner: ScannerConfig = Field(
+        default_factory=ScannerConfig,
+        description="Scan pipeline settings (worker pool size).",
     )
     burst_window_seconds: float = Field(
         default=5.0,

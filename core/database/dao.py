@@ -21,7 +21,7 @@ def get_project_db_path(project_root: Path) -> Path:
 
 
 def get_registry_db_path(base_dir: Path | None = None) -> Path:
-    """Return the path to the registry DB. base_dir defaults to repo/install root (parent of core)."""
+    """Return the registry DB path. base_dir defaults to repo/install root (parent of core)."""
     if base_dir is None:
         base_dir = Path(__file__).resolve().parent.parent.parent
     return Path(base_dir).resolve() / schema.PROJECTS_DIR_NAME / schema.REGISTRY_DB_NAME
@@ -72,7 +72,11 @@ def insert_file(
     status: str | None = None,
     group_id: int | None = None,
 ) -> int:
-    """Insert a file row. Returns file id. Replaces on path conflict (upsert)."""
+    """Insert a file row. Returns file id. Replaces on path conflict (upsert).
+
+    On conflict, group_id is only overwritten when a non-NULL value is passed —
+    rescans (which pass group_id=None) preserve existing grouping results.
+    """
     conn.execute(
         """
         INSERT INTO files (file_path, content_hash, status, group_id)
@@ -80,7 +84,7 @@ def insert_file(
         ON CONFLICT(file_path) DO UPDATE SET
             content_hash=excluded.content_hash,
             status=excluded.status,
-            group_id=excluded.group_id,
+            group_id=COALESCE(excluded.group_id, files.group_id),
             updated_at=datetime('now')
         """,
         (file_path, content_hash, status, group_id),
@@ -119,14 +123,15 @@ def insert_metric(
 def add_project(conn: sqlite3.Connection, path: str, name: str | None = None) -> int:
     """Register a project path. Returns project id. path must be absolute."""
     conn.execute(
-        "INSERT INTO projects (path, name) VALUES (?, ?) ON CONFLICT(path) DO UPDATE SET name=excluded.name",
+        "INSERT INTO projects (path, name) VALUES (?, ?) "
+        "ON CONFLICT(path) DO UPDATE SET name=excluded.name",
         (path, name),
     )
     row = conn.execute("SELECT id FROM projects WHERE path = ?", (path,)).fetchone()
     return row[0] if row else 0
 
 
-def list_projects(conn: sqlite3.Connection) -> list[dict]:
+def list_projects(conn: sqlite3.Connection) -> list[dict[str, object]]:
     """Return all registered projects (id, path, name, added_at)."""
     cursor = conn.execute(
         "SELECT id, path, name, added_at FROM projects ORDER BY added_at"

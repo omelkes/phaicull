@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from core.analyzers import (
-    AnalyzerResult,
     BaseAnalyzer,
     BlurAnalyzer,
     DuplicatesAnalyzer,

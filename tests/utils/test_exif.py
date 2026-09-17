@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-import struct
 from pathlib import Path
 
-import pytest
 from PIL import Image
 
 from core.utils.exif import auto_orient
