@@ -29,3 +29,4 @@ Offline-first photo-culling CLI. Python 3.12+, uv, Typer + rich, loguru, Pydanti
 
 ## Conventions
 - Source of truth for tasks: `TODO.md`. Workflow rules: `AGENTS.md` (atomic tasks, 4-category analyzer tests, DAO-only SQL, Path objects across processes, no network ever).
+- Git: small commits — one TODO item or one issue per commit; never batch unrelated changes.
