@@ -23,7 +23,8 @@ Offline-first photo-culling CLI. Python 3.12+, uv, Typer + rich, loguru, Pydanti
 
 ## Current status (Sprint 1, mid-way)
 - DONE: Sprint 0 foundation; Sprint 1 infra — DB schema/migrations/DAO, loader, MIME/EXIF/path-safety utils, Brain/Brawn pipeline, CLI scan skeleton, all contracts documented. Tech-debt sweep 2026-07-03 (see TODO.md Bugs section): error counting, MIME-reject status rows, group_id-preserving upsert, analyzer contract v2, cpu_count workers, ruff+mypy(strict)+CI.
-- NOT DONE: the three analyzers are STUBS raising `NotImplementedError` (`core/analyzers/{blur,exposure,duplicates}.py`) — scans persist files but zero metrics. Also missing: normalization utils, grouping, thumbnailer, `--json` output, progress events, SIGINT handling.
+- DONE (sprint1-analyzers): normalization utils (`core/utils/normalization.py`) and all three analyzers implemented — Blur (Laplacian variance, log_norm 5..2000, 1024px working size), Exposure (mean brightness linear 0-1), Duplicates (DCT pHash, AC-median, 16-hex-char). Scans now write real metrics.
+- NOT DONE: contrast_score analyzer, grouping (pHash Hamming + time bursts), thumbnailer, `--json` output, progress events, SIGINT handling, benchmark calibration of blur constants.
 - Test fixtures are synthetic (generated in `tests/conftest.py`); `.local-photos/` is gitignored for real photos, `benchmark/{blurry,sharp}/` expected there.
 - Tooling: `uv run ruff check core tests`, `uv run mypy` (strict, core only), CI in `.github/workflows/ci.yml`.
 

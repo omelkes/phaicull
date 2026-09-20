@@ -111,16 +111,29 @@ def test_scan_idempotent(tmp_path: Path) -> None:
         conn.close()
 
 
-def test_analyzer_errors_reported_in_summary(tmp_path: Path) -> None:
-    """Remaining stub analyzers raise; summary must count the failures."""
+def test_scan_writes_all_sprint1_metrics(tmp_path: Path) -> None:
+    """All three analyzers succeed: metrics rows written, zero analyzer errors."""
     scan_root = tmp_path / "photos"
     scan_root.mkdir()
-    Image.new("RGB", (8, 8)).save(scan_root / "img.jpg", "JPEG")
+    Image.new("RGB", (64, 64), color=(120, 80, 40)).save(scan_root / "img.jpg", "JPEG")
 
     summary = asyncio.run(run_scan(scan_root, Config()))
 
     assert summary.processed == 1
-    assert summary.analyzer_errors == 1  # phash stub still raises
+    assert summary.analyzer_errors == 0
+
+    conn = open_project_connection(scan_root)
+    try:
+        rows = conn.execute(
+            "SELECT metric_name, value_real, value_text FROM metrics ORDER BY metric_name"
+        ).fetchall()
+        metrics = {r["metric_name"]: (r["value_real"], r["value_text"]) for r in rows}
+        assert set(metrics) == {"blur_score", "brightness_score", "phash"}
+        assert 0.0 <= metrics["blur_score"][0] <= 1.0
+        assert 0.0 <= metrics["brightness_score"][0] <= 1.0
+        assert len(metrics["phash"][1]) == 16
+    finally:
+        conn.close()
 
 
 def test_rescan_does_not_duplicate_mime_rejected(tmp_path: Path) -> None:

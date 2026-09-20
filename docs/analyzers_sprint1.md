@@ -41,7 +41,11 @@ Per `AGENTS.md`, each analyzer:
   - Module: `core/analyzers/duplicates.py`  
   - Metric name: `phash`  
   - Type: text (`value_text`)  
-  - Interpretation: perceptual hash (e.g., 64‑bit encoded as hex string) used to detect near-duplicate images.
+  - Interpretation: 64‑bit DCT perceptual hash as a 16‑char hex string.
+    Computation: grayscale → 32x32 → DCT → top-left 8x8 block → bits =
+    coefficient > median of AC coefficients (DC excluded for brightness
+    robustness). Near-duplicates have small Hamming distance (typically ≤ 6);
+    unrelated images ~32.
 
 ### Usage Notes
 
