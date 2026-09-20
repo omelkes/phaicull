@@ -2,6 +2,7 @@
 
 from core.analyzers.base import AnalyzerResult, BaseAnalyzer
 from core.analyzers.blur import BlurAnalyzer
+from core.analyzers.contrast import ContrastAnalyzer
 from core.analyzers.duplicates import DuplicatesAnalyzer
 from core.analyzers.exposure import ExposureAnalyzer
 
@@ -9,8 +10,9 @@ __all__ = [
     "AnalyzerResult",
     "BaseAnalyzer",
     "BlurAnalyzer",
-    "ExposureAnalyzer",
+    "ContrastAnalyzer",
     "DuplicatesAnalyzer",
+    "ExposureAnalyzer",
     "get_sprint1_analyzers",
 ]
 
@@ -24,6 +26,7 @@ def get_sprint1_analyzers() -> list[BaseAnalyzer]:
     return [
         BlurAnalyzer(),
         ExposureAnalyzer(),
+        ContrastAnalyzer(),
         DuplicatesAnalyzer(),
     ]
 

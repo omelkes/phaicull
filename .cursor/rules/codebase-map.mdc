@@ -12,7 +12,7 @@ Offline-first photo-culling CLI. Python 3.12+, uv, Typer + rich, loguru, Pydanti
 - `core/config.py` — Pydantic `Config` loaded from TOML (`phaicull.toml.example`): thresholds, loader limits, scanner.max_workers, burst window.
 - `core/scanner/` — `walker.py` (discovery → `DiscoveryResult(valid, rejected_mime)`; gates: skip own phaicull/ dir, path-safety, MIME), `pipeline.py` (Brain: asyncio orchestration, batch DB commits of 50; writes `skipped_invalid_mime` status rows for MIME rejects), `worker.py` (Brawn: per-file `process_file` in ProcessPoolExecutor — hash, decode once, run all analyzers on the array, count analyzer_errors; never raises).
 - `core/loader/image_loader.py` — safe decode (size/dimension checks → Pillow → EXIF orient → BGR ndarray). Formats: JPEG/PNG/HEIC/GIF/WebP (DEC-008).
-- `core/analyzers/` — `BaseAnalyzer` contract v2 (DEC-007): one metric each, input decoded BGR `np.ndarray` + `Path` for context, output `AnalyzerResult|None`; must not re-decode or mutate the array. `get_sprint1_analyzers()` returns Blur/Exposure/Duplicates.
+- `core/analyzers/` — `BaseAnalyzer` contract v2 (DEC-007): one metric each, input decoded BGR `np.ndarray` + `Path` for context, output `AnalyzerResult|None`; must not re-decode or mutate the array. `get_sprint1_analyzers()` returns Blur/Exposure/Contrast/Duplicates.
 - `core/database/` — `dao.py` (all SQL lives here), `migrate.py` (custom sequential .sql runner + `schema_version` table), `schema.py` (name constants).
 - `core/utils/` — `mime.py` (magic bytes: JPEG/PNG/GIF/WebP/HEIC), `exif.py` (auto-orient), `path_safety.py` (scope validation).
 
@@ -23,8 +23,8 @@ Offline-first photo-culling CLI. Python 3.12+, uv, Typer + rich, loguru, Pydanti
 
 ## Current status (Sprint 1, mid-way)
 - DONE: Sprint 0 foundation; Sprint 1 infra — DB schema/migrations/DAO, loader, MIME/EXIF/path-safety utils, Brain/Brawn pipeline, CLI scan skeleton, all contracts documented. Tech-debt sweep 2026-07-03 (see TODO.md Bugs section): error counting, MIME-reject status rows, group_id-preserving upsert, analyzer contract v2, cpu_count workers, ruff+mypy(strict)+CI.
-- DONE (sprint1-analyzers): normalization utils (`core/utils/normalization.py`) and all three analyzers implemented — Blur (Laplacian variance, log_norm 5..2000, 1024px working size), Exposure (mean brightness linear 0-1), Duplicates (DCT pHash, AC-median, 16-hex-char). Scans now write real metrics.
-- NOT DONE: contrast_score analyzer, grouping (pHash Hamming + time bursts), thumbnailer, `--json` output, progress events, SIGINT handling, benchmark calibration of blur constants.
+- DONE (sprint1-analyzers): normalization utils (`core/utils/normalization.py`) and Sprint 1 analyzers implemented — Blur (Laplacian variance, log_norm 5..2000, 1024px working size), Exposure (mean brightness linear 0-1), Contrast (RMS / grayscale std, linear 0..127.5), Duplicates (DCT pHash, AC-median, 16-hex-char). Scans now write real metrics.
+- NOT DONE: grouping (pHash Hamming + time bursts), thumbnailer, `--json` output, progress events, SIGINT handling, benchmark calibration of blur constants.
 - Test fixtures are synthetic (generated in `tests/conftest.py`); `.local-photos/` is gitignored for real photos, `benchmark/{blurry,sharp}/` expected there.
 - Tooling: `uv run ruff check core tests`, `uv run mypy` (strict, core only), CI in `.github/workflows/ci.yml`.
 

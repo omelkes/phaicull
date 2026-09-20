@@ -112,7 +112,7 @@ def test_scan_idempotent(tmp_path: Path) -> None:
 
 
 def test_scan_writes_all_sprint1_metrics(tmp_path: Path) -> None:
-    """All three analyzers succeed: metrics rows written, zero analyzer errors."""
+    """All Sprint 1 analyzers succeed: metrics rows written, zero analyzer errors."""
     scan_root = tmp_path / "photos"
     scan_root.mkdir()
     Image.new("RGB", (64, 64), color=(120, 80, 40)).save(scan_root / "img.jpg", "JPEG")
@@ -128,9 +128,15 @@ def test_scan_writes_all_sprint1_metrics(tmp_path: Path) -> None:
             "SELECT metric_name, value_real, value_text FROM metrics ORDER BY metric_name"
         ).fetchall()
         metrics = {r["metric_name"]: (r["value_real"], r["value_text"]) for r in rows}
-        assert set(metrics) == {"blur_score", "brightness_score", "phash"}
+        assert set(metrics) == {
+            "blur_score",
+            "brightness_score",
+            "contrast_score",
+            "phash",
+        }
         assert 0.0 <= metrics["blur_score"][0] <= 1.0
         assert 0.0 <= metrics["brightness_score"][0] <= 1.0
+        assert 0.0 <= metrics["contrast_score"][0] <= 1.0
         assert len(metrics["phash"][1]) == 16
     finally:
         conn.close()

@@ -34,8 +34,15 @@ Per `AGENTS.md`, each analyzer:
   - Type: numeric (`value_real`)  
   - Interpretation: mean grayscale brightness, `linear_norm(mean, 0, 255)` —
     0 = black, 1 = white. Config `thresholds.brightness_min/max` flag too-dark
-    and blown-out images directly. RMS contrast is a separate future metric
-    (`contrast_score`, see TODO).
+    and blown-out images directly.
+
+- **ContrastAnalyzer**  
+  - Module: `core/analyzers/contrast.py`  
+  - Metric name: `contrast_score`  
+  - Type: numeric (`value_real`)  
+  - Interpretation: RMS contrast = grayscale standard deviation,
+    `linear_norm(std, 0, 127.5)`. 0 = flat (no variation); 1 = theoretical
+    uint8 maximum (half black, half white).
 
 - **DuplicatesAnalyzer**  
   - Module: `core/analyzers/duplicates.py`  

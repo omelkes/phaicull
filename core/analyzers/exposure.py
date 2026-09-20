@@ -4,8 +4,7 @@ brightness_score is the mean grayscale value linearly normalized to 0-1:
 0.0 = pure black, 1.0 = pure white. Config thresholds interpret it directly
 (thresholds.brightness_min flags "too dark", brightness_max "blown out").
 
-RMS contrast is a separate candidate metric (one analyzer = one metric per
-AGENTS.md) — tracked as its own TODO item.
+RMS contrast is a separate metric (`contrast_score`, ContrastAnalyzer).
 """
 
 from __future__ import annotations
