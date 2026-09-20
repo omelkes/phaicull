@@ -2,14 +2,11 @@
 
 from pathlib import Path
 
-import pytest
-
 from core.utils.mime import (
     get_image_mime,
     is_supported_image,
     supported_image_mime_types,
 )
-
 
 # --- Happy path: valid image files ---
 

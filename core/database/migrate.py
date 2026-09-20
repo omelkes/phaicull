@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import re
 import sqlite3
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from loguru import logger
@@ -92,8 +92,10 @@ def _execute_migration_sql(conn: sqlite3.Connection, sql: str) -> None:
 
 
 def _parse_description(path: Path) -> str:
-    """Extract description from migration file. First line with '-- migration: ...' or '-- description: ...'.
-    Otherwise returns the filename."""
+    """Extract description from migration file.
+
+    First line with '-- migration: ...' or '-- description: ...';
+    otherwise returns the filename."""
     text = path.read_text()
     for line in text.splitlines():
         m = DESCRIPTION_PATTERN.match(line)
@@ -139,7 +141,7 @@ def _run_migrations(db_path: Path, migrations_dir: Path) -> str:
             _execute_migration_sql(conn, sql)
             conn.execute(
                 "INSERT INTO schema_version (version, description, applied_at) VALUES (?, ?, ?)",
-                (version, description, datetime.now(timezone.utc).isoformat()),
+                (version, description, datetime.now(UTC).isoformat()),
             )
             conn.commit()
             current = version

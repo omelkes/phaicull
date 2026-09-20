@@ -20,6 +20,7 @@ Source of truth for tasks: [`TODO.md`](./TODO.md).
 
 ### 1. Atomic Tasks [MANDATORY]
 - **Atomic Tasks:** One TODO item per response. Include code + tests + docs + TODO update. 
+- **Atomic Commits:** Small commits — exactly one TODO item or one issue/bug per commit. Never batch multiple unrelated fixes or tasks into a single commit; commit and describe each one separately.
 - **Plan First:** For any non-trivial change, provide a `PLAN` (What, Why, Risks, Alignment) and wait for acknowledgment.
 
 

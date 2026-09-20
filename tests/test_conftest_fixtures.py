@@ -2,8 +2,6 @@
 
 from pathlib import Path
 
-import pytest
-
 
 def test_zero_byte_file(zero_byte_file: Path) -> None:
     assert zero_byte_file.exists()

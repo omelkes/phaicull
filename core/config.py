@@ -35,13 +35,42 @@ class ThresholdsConfig(BaseModel):
     )
 
     @model_validator(mode="after")
-    def brightness_min_lt_max(self) -> "ThresholdsConfig":
+    def brightness_min_lt_max(self) -> ThresholdsConfig:
         if self.brightness_min >= self.brightness_max:
             raise ValueError(
                 "brightness_min must be less than brightness_max "
                 f"(got brightness_min={self.brightness_min}, brightness_max={self.brightness_max})"
             )
         return self
+
+
+class LoaderConfig(BaseModel):
+    """Safety limits for the image loader (decompression-bomb prevention)."""
+
+    max_file_size_mb: float = Field(
+        default=200.0,
+        gt=0.0,
+        description="Reject files larger than this (MB) before decoding.",
+    )
+    max_image_dimension: int = Field(
+        default=30000,
+        gt=0,
+        description="Reject images with width or height exceeding this (pixels).",
+    )
+
+    @property
+    def max_file_size_bytes(self) -> int:
+        return int(self.max_file_size_mb * 1_048_576)
+
+
+class ScannerConfig(BaseModel):
+    """Settings for the scan pipeline (Brain/Brawn)."""
+
+    max_workers: int | None = Field(
+        default=None,
+        ge=1,
+        description="Worker process count for image analysis. None = use CPU count.",
+    )
 
 
 class Config(BaseModel):
@@ -52,6 +81,14 @@ class Config(BaseModel):
     thresholds: ThresholdsConfig = Field(
         default_factory=ThresholdsConfig,
         description="Blur and brightness thresholds (0–1 normalized).",
+    )
+    loader: LoaderConfig = Field(
+        default_factory=LoaderConfig,
+        description="Image loader safety limits.",
+    )
+    scanner: ScannerConfig = Field(
+        default_factory=ScannerConfig,
+        description="Scan pipeline settings (worker pool size).",
     )
     burst_window_seconds: float = Field(
         default=5.0,

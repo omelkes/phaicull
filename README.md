@@ -32,6 +32,14 @@ Phaicull uses a multi-layered approach to analyze your library:
 - **Run tests:** `uv run pytest`
 - **CLI:** `uv run phaicull --help` or `uv run phaicull scan <folder>`
 
+**Supported image formats:** JPEG, PNG, HEIC/HEIF (iPhone), GIF, WebP. Files are
+validated by magic bytes, not extension; anything else is recorded as skipped.
+
+**Test directories:**
+- `tests/fixtures/images/` — committed basic images for unit tests (CI, contributors)
+- `.local-photos/` — gitignored directory for real photo testing and model training (never committed)
+- `.local-photos/benchmark/blurry/` and `../sharp/` — several hand-picked photos for blur accuracy checks. These are local test photos for development and testing. Do not commit this directory to the repository.
+
 ## 🛠 Tech Stack
 - **Core:** Python 3.12+ (OpenCV, NumPy, MediaPipe, ONNX)
 - **Database:** SQLite (One database per project/folder)

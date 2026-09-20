@@ -22,7 +22,7 @@ def test_migrate_creates_db_and_schema_version(tmp_path: Path) -> None:
     version = migrate(db_path)
 
     assert db_path.exists()
-    assert version == "002"
+    assert version == "003"
 
 
 def test_migrate_idempotent(tmp_path: Path) -> None:
@@ -31,7 +31,7 @@ def test_migrate_idempotent(tmp_path: Path) -> None:
     v1 = migrate(db_path)
     v2 = migrate(db_path)
 
-    assert v1 == v2 == "002"
+    assert v1 == v2 == "003"
 
 
 def test_get_schema_version_returns_none_for_missing_db(tmp_path: Path) -> None:
@@ -44,7 +44,7 @@ def test_get_schema_version_returns_version_after_migrate(tmp_path: Path) -> Non
     """get_schema_version returns current version after migrate."""
     db_path = tmp_path / "test.db"
     migrate(db_path)
-    assert get_schema_version(db_path) == "002"
+    assert get_schema_version(db_path) == "003"
 
 
 def test_schema_version_table_has_correct_structure(tmp_path: Path) -> None:
@@ -55,7 +55,9 @@ def test_schema_version_table_has_correct_structure(tmp_path: Path) -> None:
     conn = sqlite3.connect(str(db_path))
     cursor = conn.execute("PRAGMA table_info(schema_version)")
     columns = {row[1]: row[2] for row in cursor.fetchall()}
-    cursor = conn.execute("SELECT version, description, applied_at FROM schema_version ORDER BY version")
+    cursor = conn.execute(
+        "SELECT version, description, applied_at FROM schema_version ORDER BY version"
+    )
     rows = cursor.fetchall()
     conn.close()
 
@@ -90,7 +92,9 @@ def test_get_applied_migrations_returns_history(tmp_path: Path) -> None:
 
     assert len(applied) >= 1
     assert applied[0]["version"] == "001"
-    assert applied[0]["description"] == "Initial schema_version table with version, description, applied_at"
+    assert applied[0]["description"] == (
+        "Initial schema_version table with version, description, applied_at"
+    )
     assert applied[0]["applied_at"]
 
 
@@ -149,7 +153,8 @@ def test_migrate_creates_project_tables(tmp_path: Path) -> None:
 
     conn = sqlite3.connect(str(db_path))
     cursor = conn.execute(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('files','metrics','groups') ORDER BY name"
+        "SELECT name FROM sqlite_master WHERE type='table' "
+        "AND name IN ('files','metrics','groups') ORDER BY name"
     )
     tables = [row[0] for row in cursor.fetchall()]
     conn.close()

@@ -91,7 +91,7 @@ See [ADR-001](adr-001.md) for the full architecture decision record (CLI-first, 
 - Add `loguru` to `pyproject.toml` dependencies.
 - Use `logger.add(sys.stderr, format="...")` for interactive CLI.
 - For UI subprocess: add a sink with `serialize=True` or a custom serializer that emits JSON lines with `event`, `percent`, `current`, `message`, etc.
-- Define a **progress event schema** (to be documented in the Progress Reporting Contract in Sprint 1).
+- Define a **progress event schema** (documented in the Progress Reporting Contract; see `docs/progress_contract.md`).
 
 ---
 
@@ -218,3 +218,101 @@ See [ADR-001](adr-001.md) for the full architecture decision record (CLI-first, 
 - `core/config.py` — `Config`, `ThresholdsConfig` (Pydantic v2), `load_config(path)`.
 - Fields: `thresholds.blur_min`, `thresholds.brightness_min`, `thresholds.brightness_max`, `burst_window_seconds`, `heavy_features_enabled`.
 - `phaicull.toml.example` — example config for users.
+
+---
+
+## DEC-006: Testing Strategy — Hybrid SQLite & Test Data Layout
+
+**Status:** Decided  
+**Date:** 2026-03-16  
+**Scope:** Sprint 1, Loader phase — overall SQLite usage in tests and test data directories.
+
+### Decision
+
+Use a **hybrid testing strategy**:
+
+- Favor **in-memory SQLite project DBs** for fast, isolated unit-style tests that still need real tables.
+- Use **temporary on-disk project DBs** (under pytest `tmp_path`) for component tests that exercise migrations and DAOs.
+- Use **persistent on-disk project DBs** alongside `.local-photos/` for optional real-photo integration and benchmarking runs.
+
+Test data is split between:
+
+- **Committed synthetic fixtures** under `tests/fixtures/images/` (small, non-sensitive images and edge-case files).
+- **Local real-photo sets** under `.local-photos/` (gitignored, developer-provided).
+
+See `docs/testing_strategy.md` for details.
+
+### Rationale
+
+1. **Performance vs realism:**  
+   In-memory DBs keep the default unit tests extremely fast, while on-disk DBs for component tests and real-photo runs ensure that migrations, WAL mode, and DAO behavior are exercised under realistic conditions.
+
+2. **Debuggability for long runs:**  
+   Persistent DBs and logs under `.local-photos/` allow developers to inspect state when something fails after hundreds or thousands of files (e.g., Loader stopping after 100 photos), which is difficult with purely in-memory or auto-deleted temp DBs.
+
+3. **Privacy and safety:**  
+   Real photos never leave the developer’s machine and are never committed to Git. `.local-photos/` is gitignored, while `tests/fixtures/images/` only contains minimal, synthetic fixtures safe for CI.
+
+4. **Alignment with AGENTS.md:**  
+   Keeps analyzers idempotent and testable in isolation, respects the CLI/SQLite contract, and maintains a clear separation between core logic and UI/experiment data.
+
+### Implementation Notes
+
+- DB fixtures live in `tests/conftest.py`:
+  - `in_memory_project_db` — single in-memory project DB connection with all migrations applied.
+  - `project_db_connection_factory(kind=\"memory\"|\"temp\")` — factory for in-memory or temp on-disk project DB connections.
+  - `temp_project_db_factory` / `temp_registry_db_factory` — existing factories returning migrated DB paths (kept for simple path-based tests).
+- Test data directories:
+  - `tests/fixtures/images/` — committed fixtures (kept in Git via `.gitkeep`).
+  - `.local-photos/` — gitignored root for local photos (kept via `.gitkeep`; patterns in `.gitignore`).
+
+---
+
+## DEC-007: Analyzer Contract v2 — Decoded Image Input (Decode Once)
+
+**Status:** Decided  
+**Date:** 2026-07-03  
+**Scope:** `BaseAnalyzer` interface (Stable API), Brawn worker.
+
+### Decision
+
+`BaseAnalyzer.analyze` receives the **decoded BGR image array** plus the source `Path`:
+
+```python
+def analyze(self, image: np.ndarray, path: Path) -> AnalyzerResult | None: ...
+```
+
+The Brawn worker (`core/scanner/worker.py`) decodes each file exactly once via
+`load_image()` and shares the array with all analyzers in the same process.
+Analyzers must not re-read image data from disk and must not mutate the shared array.
+
+- **Alternatives:** (A) keep `analyze(path)` and let each analyzer decode — N decodes
+  per file; (B) pass raw bytes — violates AGENTS.md memory-safety rule.
+- **Rationale:** With 3+ analyzers, per-analyzer decoding multiplies the most expensive
+  step of the scan and would break the "1k photos < 5 min" Sprint 1 target. The array
+  never crosses a process boundary (Paths still cross; decoding happens inside Brawn),
+  so AGENTS.md memory rules are preserved.
+
+### Versioning note
+
+This is a **contract change before any concrete analyzer existed** (all Sprint 1
+analyzers were stubs). No migration needed; contract is labeled v2 in
+`core/analyzers/base.py` docstrings.
+
+---
+
+## DEC-008: Supported Image Formats — Gate and Loader Alignment
+
+**Status:** Decided  
+**Date:** 2026-07-03  
+**Scope:** MIME gate (`core/utils/mime.py`), loader, docs.
+
+### Decision
+
+Supported formats are **JPEG, PNG, HEIC/HEIF, GIF, WebP** — exactly what the
+magic-byte gate accepts. Pillow decodes all five natively (HEIC via pillow-heif).
+
+- **Alternatives:** restrict the gate to JPG/PNG/HEIC as older docs stated.
+- **Rationale:** GIF/WebP support already worked end-to-end; removing formats would
+  be a behavior regression, while documenting them is purely additive. WebP is common
+  on Android devices — relevant for the target audience.
