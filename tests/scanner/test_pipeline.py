@@ -120,7 +120,7 @@ def test_analyzer_errors_reported_in_summary(tmp_path: Path) -> None:
     summary = asyncio.run(run_scan(scan_root, Config()))
 
     assert summary.processed == 1
-    assert summary.analyzer_errors == 2  # exposure + phash stubs still raise
+    assert summary.analyzer_errors == 1  # phash stub still raises
 
 
 def test_rescan_does_not_duplicate_mime_rejected(tmp_path: Path) -> None:

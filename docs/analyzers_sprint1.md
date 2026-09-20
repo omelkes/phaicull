@@ -32,7 +32,10 @@ Per `AGENTS.md`, each analyzer:
   - Module: `core/analyzers/exposure.py`  
   - Metric name: `brightness_score`  
   - Type: numeric (`value_real`)  
-  - Interpretation: normalized brightness score derived from mean brightness and RMS contrast.
+  - Interpretation: mean grayscale brightness, `linear_norm(mean, 0, 255)` —
+    0 = black, 1 = white. Config `thresholds.brightness_min/max` flag too-dark
+    and blown-out images directly. RMS contrast is a separate future metric
+    (`contrast_score`, see TODO).
 
 - **DuplicatesAnalyzer**  
   - Module: `core/analyzers/duplicates.py`  
