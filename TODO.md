@@ -62,7 +62,7 @@
 
 ### 4. Core Analyzers (The Compute phase)
 - [x] **Normalization Logic:** Implement utilities to normalize all metrics to comparable scales (0–1). See `core/utils/normalization.py`: `clamp01`, `linear_norm` (bounded metrics), `log_norm` (wide-dynamic-range metrics). Per-image deterministic (no dataset-relative scaling — keeps analyzers idempotent); NaN/inf → None (NULL metric).
-- [ ] **Blur Analyzer:** Laplacian Variance. Stable across resolutions, normalized to 0–1.
+- [x] **Blur Analyzer:** Laplacian Variance. Stable across resolutions (downscaled to 1024px working size), log-normalized to 0–1 (lower = blurrier). Calibration constants `_VAR_LO=5, _VAR_HI=2000` are provisional — tune against benchmark set in Verification.
 - [ ] **Exposure Analyzer:** RMS Contrast & Mean Brightness.
 - [ ] **Duplicates Analyzer:** Perceptual Hashing (pHash) to find near-matches.
 - [ ] **Analyzer tests:** Each analyzer (Blur, Exposure, Duplicates) must have 4-category tests: happy path, corrupted (truncated/zero-byte), invalid type (non-image), edge cases (1x1 px, extreme aspect ratio). Per AGENTS.md Technical Standards.

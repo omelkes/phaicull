@@ -37,23 +37,31 @@ def test_process_valid_jpeg(tmp_path: Path) -> None:
 
 
 def test_analyzer_failures_are_counted(tmp_path: Path) -> None:
-    """Analyzers that raise are counted in FileResult.analyzer_errors.
+    """Analyzers that raise are counted in FileResult.analyzer_errors."""
+    import numpy as np
 
-    The Sprint 1 stubs all raise NotImplementedError, so each of the
-    three must be recorded as a failure — not silently dropped.
-    """
+    from core.analyzers.base import AnalyzerResult, BaseAnalyzer
+
+    class FailingAnalyzer(BaseAnalyzer):
+        @property
+        def metric_name(self) -> str:
+            return "always_fails"
+
+        def analyze(self, image: np.ndarray, path: Path) -> AnalyzerResult | None:
+            raise RuntimeError("boom")
+
     path = tmp_path / "photo.jpg"
     Image.new("RGB", (32, 32)).save(path, "JPEG")
 
     result = process_file(
         path,
-        get_sprint1_analyzers(),
+        [FailingAnalyzer()],
         max_file_size_bytes=MAX_SIZE,
         max_dimension=MAX_DIM,
     )
 
     assert result.status == "ok"
-    assert result.analyzer_errors == 3
+    assert result.analyzer_errors == 1
     assert result.metrics == []
 
 

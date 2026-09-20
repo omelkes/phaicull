@@ -23,7 +23,10 @@ Per `AGENTS.md`, each analyzer:
   - Module: `core/analyzers/blur.py`  
   - Metric name: `blur_score`  
   - Type: numeric (`value_real` in `AnalyzerResult`)  
-  - Range (normalized in later work): \[0, 1], where lower values indicate blurrier images.
+  - Range: \[0, 1], where lower values indicate blurrier images.  
+  - Computation: grayscale → downscale to 1024px working size (resolution
+    stability) → Laplacian variance → `log_norm(var, 5, 2000)`. Calibration
+    constants are provisional pending benchmark validation.
 
 - **ExposureAnalyzer**  
   - Module: `core/analyzers/exposure.py`  

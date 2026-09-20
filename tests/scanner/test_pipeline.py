@@ -112,7 +112,7 @@ def test_scan_idempotent(tmp_path: Path) -> None:
 
 
 def test_analyzer_errors_reported_in_summary(tmp_path: Path) -> None:
-    """Stub analyzers raise NotImplementedError; summary must count the failures."""
+    """Remaining stub analyzers raise; summary must count the failures."""
     scan_root = tmp_path / "photos"
     scan_root.mkdir()
     Image.new("RGB", (8, 8)).save(scan_root / "img.jpg", "JPEG")
@@ -120,7 +120,7 @@ def test_analyzer_errors_reported_in_summary(tmp_path: Path) -> None:
     summary = asyncio.run(run_scan(scan_root, Config()))
 
     assert summary.processed == 1
-    assert summary.analyzer_errors == 3  # blur, exposure, phash stubs all raise
+    assert summary.analyzer_errors == 2  # exposure + phash stubs still raise
 
 
 def test_rescan_does_not_duplicate_mime_rejected(tmp_path: Path) -> None:
