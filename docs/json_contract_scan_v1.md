@@ -62,6 +62,7 @@ Example:
   "metrics": {
     "blur_score":      { "value_real": 0.12, "value_text": null },
     "brightness_score":{ "value_real": 0.64, "value_text": null },
+    "contrast_score":  { "value_real": 0.41, "value_text": null },
     "phash":           { "value_real": null, "value_text": "ff00aa55cc33dd99" }
   }
 }

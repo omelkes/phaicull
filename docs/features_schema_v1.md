@@ -13,13 +13,14 @@ Sprint 1 analyzers.
 |--------------------|--------|---------------------|-----------------------------------------------------|
 | `blur_score`       | float  | `BlurAnalyzer`      | Normalized blur measure; lower = blurrier image    |
 | `brightness_score` | float  | `ExposureAnalyzer`  | Normalized brightness / exposure score             |
+| `contrast_score`   | float  | `ContrastAnalyzer`  | RMS contrast (grayscale std); 0 = flat, 1 = max    |
 | `phash`            | string | `DuplicatesAnalyzer`| Perceptual hash used for duplicate detection       |
 
 ### Storage Mapping
 
 - In SQLite (`metrics` table):
   - `metric_name` is one of the feature names above.
-  - `value_real` holds numeric values (`blur_score`, `brightness_score`).
+  - `value_real` holds numeric values (`blur_score`, `brightness_score`, `contrast_score`).
   - `value_text` holds string values (`phash`).
 
 - In JSON (`docs/json_contract_scan_v1.md`):

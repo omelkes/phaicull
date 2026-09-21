@@ -61,11 +61,12 @@
 - [x] **Benchmark Set:** Create a 'Ground Truth' folder with 10 blurry and 10 sharp photos to test algorithm accuracy locally. Convention: `.local-photos/benchmark/blurry/` and `.../sharp/`. See `docs/testing_strategy.md`.
 
 ### 4. Core Analyzers (The Compute phase)
-- [ ] **Normalization Logic:** Implement utilities to normalize all metrics to comparable scales (0–1).
-- [ ] **Blur Analyzer:** Laplacian Variance. Stable across resolutions, normalized to 0–1.
-- [ ] **Exposure Analyzer:** RMS Contrast & Mean Brightness.
-- [ ] **Duplicates Analyzer:** Perceptual Hashing (pHash) to find near-matches.
-- [ ] **Analyzer tests:** Each analyzer (Blur, Exposure, Duplicates) must have 4-category tests: happy path, corrupted (truncated/zero-byte), invalid type (non-image), edge cases (1x1 px, extreme aspect ratio). Per AGENTS.md Technical Standards.
+- [x] **Normalization Logic:** Implement utilities to normalize all metrics to comparable scales (0–1). See `core/utils/normalization.py`: `clamp01`, `linear_norm` (bounded metrics), `log_norm` (wide-dynamic-range metrics). Per-image deterministic (no dataset-relative scaling — keeps analyzers idempotent); NaN/inf → None (NULL metric).
+- [x] **Blur Analyzer:** Laplacian Variance. Stable across resolutions (downscaled to 1024px working size), log-normalized to 0–1 (lower = blurrier). Calibration constants `_VAR_LO=5, _VAR_HI=2000` are provisional — tune against benchmark set in Verification.
+- [x] **Exposure Analyzer:** Mean brightness, linearly normalized to 0–1 (0 = black, 1 = white); thresholds.brightness_min/max apply directly.
+- [x] **Contrast Analyzer:** RMS contrast as separate `contrast_score` metric (one analyzer = one metric per AGENTS.md; split out of the original Exposure item). Grayscale std, `linear_norm(std, 0, 127.5)` — 0 = flat, 1 = theoretical uint8 max.
+- [x] **Duplicates Analyzer:** Perceptual Hashing (pHash) to find near-matches. DCT-based via OpenCV (no new dependency); AC-median convention (brightness-shift robust); 64-bit hash as 16-char hex in `value_text`. Hamming-distance grouping is the separate Grouping task.
+- [x] **Analyzer tests:** Each analyzer (Blur, Exposure, Contrast, Duplicates) has 4-category tests: happy path, corrupted (truncated/zero-byte), invalid type (non-image), edge cases (1x1 px, extreme aspect ratio). Corrupted/invalid files are gated by the loader — verified end-to-end through the Brawn worker in each analyzer's test file.
 
 ### 5. Post-Processing (Grouping & Caching)
 - [ ] **Grouping Logic:** Algorithm to group photos by time-window (e.g., "bursts" within 5 seconds). Uses EXIF time if available, file mtime as fallback.

@@ -23,19 +23,36 @@ Per `AGENTS.md`, each analyzer:
   - Module: `core/analyzers/blur.py`  
   - Metric name: `blur_score`  
   - Type: numeric (`value_real` in `AnalyzerResult`)  
-  - Range (normalized in later work): \[0, 1], where lower values indicate blurrier images.
+  - Range: \[0, 1], where lower values indicate blurrier images.  
+  - Computation: grayscale → downscale to 1024px working size (resolution
+    stability) → Laplacian variance → `log_norm(var, 5, 2000)`. Calibration
+    constants are provisional pending benchmark validation.
 
 - **ExposureAnalyzer**  
   - Module: `core/analyzers/exposure.py`  
   - Metric name: `brightness_score`  
   - Type: numeric (`value_real`)  
-  - Interpretation: normalized brightness score derived from mean brightness and RMS contrast.
+  - Interpretation: mean grayscale brightness, `linear_norm(mean, 0, 255)` —
+    0 = black, 1 = white. Config `thresholds.brightness_min/max` flag too-dark
+    and blown-out images directly.
+
+- **ContrastAnalyzer**  
+  - Module: `core/analyzers/contrast.py`  
+  - Metric name: `contrast_score`  
+  - Type: numeric (`value_real`)  
+  - Interpretation: RMS contrast = grayscale standard deviation,
+    `linear_norm(std, 0, 127.5)`. 0 = flat (no variation); 1 = theoretical
+    uint8 maximum (half black, half white).
 
 - **DuplicatesAnalyzer**  
   - Module: `core/analyzers/duplicates.py`  
   - Metric name: `phash`  
   - Type: text (`value_text`)  
-  - Interpretation: perceptual hash (e.g., 64‑bit encoded as hex string) used to detect near-duplicate images.
+  - Interpretation: 64‑bit DCT perceptual hash as a 16‑char hex string.
+    Computation: grayscale → 32x32 → DCT → top-left 8x8 block → bits =
+    coefficient > median of AC coefficients (DC excluded for brightness
+    robustness). Near-duplicates have small Hamming distance (typically ≤ 6);
+    unrelated images ~32.
 
 ### Usage Notes
 
