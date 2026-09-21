@@ -15,11 +15,7 @@ MAX_DIM = 5000
 
 
 def test_process_valid_jpeg(tmp_path: Path) -> None:
-    """Valid JPEG produces a FileResult with content_hash and ok status.
-
-    Analyzers are stubs (NotImplementedError) so metrics will be empty,
-    but the worker should not crash.
-    """
+    """Valid JPEG produces a FileResult with content_hash, ok status, and metrics."""
     path = tmp_path / "photo.jpg"
     Image.new("RGB", (32, 32), color=(100, 100, 100)).save(path, "JPEG")
 
@@ -34,6 +30,9 @@ def test_process_valid_jpeg(tmp_path: Path) -> None:
     assert result.status == "ok"
     assert result.content_hash is not None
     assert len(result.content_hash) == 64  # SHA-256 hex
+    assert result.analyzer_errors == 0
+    names = {m.metric_name for m in result.metrics}
+    assert names == {"blur_score", "brightness_score", "contrast_score", "phash"}
 
 
 def test_analyzer_failures_are_counted(tmp_path: Path) -> None:

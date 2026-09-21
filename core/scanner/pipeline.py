@@ -7,6 +7,7 @@ image loading and analysis, then batch-writes results to the project DB.
 from __future__ import annotations
 
 import asyncio
+import multiprocessing as mp
 import os
 import sqlite3
 from concurrent.futures import ProcessPoolExecutor
@@ -45,6 +46,16 @@ def _resolve_max_workers(config: Config, file_count: int) -> int:
     """Worker pool size: config override, else cpu_count; never more than files."""
     workers = config.scanner.max_workers or os.cpu_count() or 1
     return max(1, min(workers, file_count))
+
+
+def _mp_context() -> mp.context.BaseContext:
+    """Process start method for Brawn workers.
+
+    Default ``fork`` is unsafe once the parent has threads (pytest, loguru)
+    and raises a DeprecationWarning on Python 3.12+. ``spawn`` is portable
+    and avoids inheriting the parent's thread state.
+    """
+    return mp.get_context("spawn")
 
 
 async def run_scan(scan_root: Path, config: Config) -> ScanSummary:
@@ -103,7 +114,9 @@ async def _process_files(
         max_file_size_bytes=config.loader.max_file_size_bytes,
         max_dimension=config.loader.max_image_dimension,
     )
-    with ProcessPoolExecutor(max_workers=max_workers) as executor:
+    with ProcessPoolExecutor(
+        max_workers=max_workers, mp_context=_mp_context()
+    ) as executor:
         futures = [loop.run_in_executor(executor, worker_fn, fp) for fp in files]
 
         pending = 0
