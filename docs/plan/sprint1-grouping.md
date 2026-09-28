@@ -1,6 +1,6 @@
 # PLAN — Sprint 1 grouping (visual similarity)
 
-**Status:** Accepted (2026-09-28)  
+**Status:** In progress (G1 done)  
 **Branch:** `sprint1-grouping`  
 **Date:** 2026-09-21  
 **TODO:** Sprint 1 §5 Grouping Logic
@@ -145,7 +145,7 @@ Direction is unchanged. These are holes that G1–G5 must cover:
 
 Implement only after this plan is **Accepted**.
 
-- [ ] **G1. DAO group methods:** `insert_group`, `set_file_group`, `list_files_for_grouping` (`status=ok` + `phash`), `reset_groups` (NULL `group_id` **then** `DELETE FROM groups`), `count_multi_file_groups`. SQL only in `dao.py`. Tests in `tests/database/test_dao.py`. Caller owns the transaction (DAO methods do not commit).
+- [x] **G1. DAO group methods:** `insert_group`, `set_file_group`, `list_files_for_grouping` (`status=ok` + `phash`), `reset_groups` (NULL `group_id` **then** `DELETE FROM groups`), `count_multi_file_groups`. SQL only in `dao.py`. Tests in `tests/database/test_dao.py`. Caller owns the transaction (DAO methods do not commit).
 - [ ] **G2. pHash clustering (pure):** `core/grouping/phash_cluster.py` — hex → 64-bit, Hamming via XOR `int.bit_count()`, union-find if distance ≤ max. No timestamps. Invalid/missing hex → no edges, no throw. Tests in `tests/grouping/test_phash_cluster.py`: identical hash, distance 6 vs 7, missing/invalid hex, empty, singleton, transitivity, deterministic membership (sort by file id/path before union).
 - [ ] **G3. Grouping service:** `core/grouping/service.py` — load via DAO, cluster, persist size≥2, return counts. One transaction: reset + write. **Skip reset** when fewer than two valid phashes (do not wipe previous groups). Tests in `tests/grouping/test_service.py`: two near-dups grouped, unrelated hashes not grouped, rescan membership stable (path sets, not ids), singletons NULL, only `status=ok`, empty project, invalid phash ignored.
 - [ ] **G4. Pipeline + config:** After `_process_files` commit in `run_scan`, call grouping. Catch grouping errors so metrics remain. Add `phash_hamming_max: int = 6` (`ge=0`, `le=64`). Relabel `burst_window_seconds` as unused by grouping. `ScanSummary.duplicate_groups`. CLI prints near-duplicate group count. Pipeline tests: identical pair grouped, different image not, rejects ungrouped. Update `phaicull.toml.example`.
