@@ -48,7 +48,8 @@ Each entry in `files` has the following shape:
   column in the `files` table (e.g., `"ok"`, `"skipped_invalid_mime"`,
   `"error_reading"`).
 - `group_id` (integer or null, optional): foreign key to a row in `groups`
-  (time‑based burst, near‑duplicate cluster, etc.).
+  (visual near-duplicate cluster in Sprint 1; activity/scene clusters later).
+  See [`docs/plan/sprint1-grouping.md`](plan/sprint1-grouping.md).
 - `metrics` (object): map from `metric_name` to an object with `value_real`
   and `value_text`, mirroring `AnalyzerResult`.
 

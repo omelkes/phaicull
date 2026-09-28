@@ -21,11 +21,12 @@ Source of truth for tasks: [`TODO.md`](./TODO.md).
 ### 1. Atomic Tasks [MANDATORY]
 - **Atomic Tasks:** One TODO item per response. Include code + tests + docs + TODO update. 
 - **Atomic Commits:** Small commits — exactly one TODO item or one issue/bug per commit. Never batch multiple unrelated fixes or tasks into a single commit; commit and describe each one separately.
-- **Plan First:** For any non-trivial change, provide a `PLAN` (What, Why, Risks, Alignment) and wait for acknowledgment.
+- **Plan First:** For any non-trivial change, write a `PLAN` (What, Why, Risks, Alignment) in [`docs/plan/`](docs/plan/README.md), link it from [`TODO.md`](./TODO.md), and wait for acknowledgment. TODO stays a checklist — do not embed long reasoning there.
 
 
 ### 2. Living Documentation
     - Update [`TODO.md`](./TODO.md) immediately after completion (mark done, add new bugs/tasks).
+    - Detailed plans and rejected alternatives live in [`docs/plan/`](docs/plan/README.md). Implemented decisions stay in [`docs/decisions.md`](docs/decisions.md).
     - End every response with a **"Project State"** summary if the roadmap or architecture shifted.
     - Update `README.md` or `docs/` if the public interface, setup steps, or architecture changed.
 
