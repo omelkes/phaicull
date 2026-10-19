@@ -49,7 +49,7 @@ Each entry in `files` has the following shape:
   `"error_reading"`).
 - `group_id` (integer or null, optional): foreign key to a row in `groups`
   (visual near-duplicate cluster in Sprint 1; activity/scene clusters later).
-  See [`docs/plan/sprint1-grouping.md`](plan/sprint1-grouping.md).
+  Membership is stable; integer ids are not. See [`grouping.md`](grouping.md).
 - `metrics` (object): map from `metric_name` to an object with `value_real`
   and `value_text`, mirroring `AnalyzerResult`.
 

@@ -19,13 +19,14 @@ Offline-first photo-culling CLI. Python 3.12+, uv, Typer + rich, loguru, Pydanti
 ## Data
 - Project DB: `{scanned_folder}/phaicull/phaicull.db` — tables `files`, `metrics` (key-value: metric_name/value_real/value_text), `groups`. Migrations at 003.
 - Registry DB: `.projects/registry.db` — table `projects`.
-- Contracts (stable APIs) documented in `docs/`: `json_contract_scan_v1.md`, `progress_contract.md`, `features_schema_v1.md`, `decisions.md` (DEC-001..), `adr-001.md`.
+- Contracts (stable APIs) documented in `docs/`: `json_contract_scan_v1.md`, `progress_contract.md`, `features_schema_v1.md`, `grouping.md`, `decisions.md` (DEC-001..009), `adr-001.md`.
 - Working plans (not contracts): `docs/plan/` — checklist stays in `TODO.md`.
 
 ## Current status (Sprint 1, mid-way)
 - DONE: Sprint 0 foundation; Sprint 1 infra — DB schema/migrations/DAO, loader, MIME/EXIF/path-safety utils, Brain/Brawn pipeline, CLI scan skeleton, all contracts documented. Tech-debt sweep 2026-07-03 (see TODO.md Bugs section): error counting, MIME-reject status rows, group_id-preserving upsert, analyzer contract v2, cpu_count workers, ruff+mypy(strict)+CI.
 - DONE (sprint1-analyzers): normalization utils (`core/utils/normalization.py`) and Sprint 1 analyzers implemented — Blur (Laplacian variance, log_norm 5..2000, 1024px working size), Exposure (mean brightness linear 0-1), Contrast (RMS / grayscale std, linear 0..127.5), Duplicates (DCT pHash, AC-median, 16-hex-char). Scans now write real metrics.
-- NOT DONE: grouping (pHash Hamming near-duplicates; not time — see `docs/plan/sprint1-grouping.md`), thumbnailer, `--json` output, progress events, SIGINT handling, benchmark calibration of blur constants.
+- DONE (sprint1-grouping): `core/grouping/` — `phash_cluster.py` (pure union-find on Hamming ≤ `phash_hamming_max`, default 6) and `service.py` (`regroup`: reconciles `files.group_id` with clusters in one transaction, no-op when unchanged, clears stale ids). Called at the end of `run_scan`; failures keep metrics. Visual only, never time. Contract: `docs/grouping.md`, DEC-009.
+- NOT DONE: thumbnailer, `--json` output, progress events, SIGINT handling, benchmark calibration of blur constants.
 - Test fixtures are synthetic (generated in `tests/conftest.py`); `.local-photos/` is gitignored for real photos, `benchmark/{blurry,sharp}/` expected there.
 - Tooling: `uv run ruff check core tests`, `uv run mypy` (strict, core only), CI in `.github/workflows/ci.yml`.
 

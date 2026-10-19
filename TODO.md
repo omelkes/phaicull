@@ -69,8 +69,8 @@
 - [x] **Analyzer tests:** Each analyzer (Blur, Exposure, Contrast, Duplicates) has 4-category tests: happy path, corrupted (truncated/zero-byte), invalid type (non-image), edge cases (1x1 px, extreme aspect ratio). Corrupted/invalid files are gated by the loader — verified end-to-end through the Brawn worker in each analyzer's test file.
 
 ### 5. Post-Processing (Grouping & Caching)
-- [ ] **Grouping Logic:** Visual near-duplicate clusters via pHash Hamming (not time). Activity/scene groups wait for embeddings. Plan: [`docs/plan/sprint1-grouping.md`](docs/plan/sprint1-grouping.md).
-- [ ] **Thumbnailer:** Generate and cache 300px thumbnails locally. (Do not start until grouping is done.)
+- [x] **Grouping Logic:** Visual near-duplicate clusters via pHash Hamming (not time), run at the end of every scan. Activity/scene groups wait for embeddings. Contract: [`docs/grouping.md`](docs/grouping.md); DEC-009; plan: [`docs/plan/sprint1-grouping.md`](docs/plan/sprint1-grouping.md).
+- [ ] **Thumbnailer:** Generate and cache 300px thumbnails locally.
 
 ### 6. CLI Integration & Resilience
 - [ ] **CLI scan command:** Create `cli.py scan --folder ~/Pictures`.

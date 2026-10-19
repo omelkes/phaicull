@@ -316,3 +316,33 @@ magic-byte gate accepts. Pillow decodes all five natively (HEIC via pillow-heif)
 - **Rationale:** GIF/WebP support already worked end-to-end; removing formats would
   be a behavior regression, while documenting them is purely additive. WebP is common
   on Android devices — relevant for the target audience.
+
+---
+
+## DEC-009: Grouping — Visual Near-Duplicates by pHash, Not Time
+
+**Status:** Decided  
+**Date:** 2026-10-19  
+**Scope:** `files.group_id`, `groups` table, `core/grouping/`, config `phash_hamming_max`.
+Contract: [`grouping.md`](grouping.md). Plan: [`plan/sprint1-grouping.md`](plan/sprint1-grouping.md).
+
+### Decision
+
+Sprint 1 groups photos whose 64-bit pHashes differ by at most `phash_hamming_max`
+(default 6), as connected components of two or more `status=ok` files. No time edges.
+Each scan reconciles stored groups with the computed ones: no writes when membership
+is unchanged, otherwise wipe and rewrite in one transaction.
+
+- **Alternatives:** (A) time-window bursts (the original TODO); (B) time ∪ pHash;
+  (C) CLIP activity clusters now; (D) always wipe and rewrite.
+- **Rationale:** Same second ≠ same subject — time edges would merge a child with a
+  butterfly into a sibling's race. pHash is the only visual signal available offline
+  today and fails safe (too few groups, not wrong ones). Activity groups wait for
+  Sprint 2 embeddings. The no-op check keeps ids stable across unchanged rescans,
+  which (D) does not.
+
+### Notes
+
+- Group ids are ephemeral; membership is the contract.
+- `burst_window_seconds` stays in config, unused, to avoid a config-contract break.
+- No schema change: uses the existing `groups` table and `files.group_id`.
