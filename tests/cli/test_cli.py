@@ -48,6 +48,7 @@ def test_scan_with_valid_folder(tmp_path: Path) -> None:
     assert str(tmp_path) in result.output or tmp_path.name in result.output
     assert "Scan complete" in result.output
     assert "Discovered" in result.output
+    assert "Near-duplicate groups: 0" in result.output
 
 
 def test_scan_with_config(tmp_path: Path) -> None:

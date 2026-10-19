@@ -1,6 +1,6 @@
 # PLAN — Sprint 1 grouping (visual similarity)
 
-**Status:** In progress (G3 done)  
+**Status:** In progress (G4 done)  
 **Branch:** `sprint1-grouping`  
 **Date:** 2026-09-21  
 **TODO:** Sprint 1 §5 Grouping Logic
@@ -160,7 +160,7 @@ Implement only after this plan is **Accepted**.
   - DAO addition (same commit): `list_group_memberships(conn) -> dict[int, int]` (file_id → group_id for every file with non-NULL group_id, any status). Stored membership = files grouped by group_id, **including singletons**, so a stale one-file group also counts as a change and gets cleared.
   - `GroupingResult` (Pydantic): `candidates`, `invalid_phash` (ok files with missing/invalid hash), `duplicate_groups`, `grouped_files`, `changed`.
   - Tests in `tests/grouping/test_service.py`: identical pair grouped; unrelated hash stays NULL; **unchanged rescan keeps the same ids and writes nothing**; membership change rewrites; **stale `group_id` on a now-`load_failed` file is cleared**; stale ids cleared when **no** valid pairs remain; missing/invalid phash ignored and counted; empty project is a no-op; error mid-write rolls back (previous groups intact); open transaction on entry raises; `hamming_max` out of range raises.
-- [ ] **G4. Pipeline + config:** After `_process_files` commit in `run_scan`, call grouping. Catch grouping errors so metrics remain. Add `phash_hamming_max: int = 6` (`ge=0`, `le=64`). Relabel `burst_window_seconds` as unused by grouping. `ScanSummary.duplicate_groups`. CLI prints near-duplicate group count. Pipeline tests: identical pair grouped, different image not, rejects ungrouped. Update `phaicull.toml.example`.
+- [x] **G4. Pipeline + config:** After `_process_files` commit in `run_scan`, call grouping. Catch grouping errors so metrics remain. Add `phash_hamming_max: int = 6` (`ge=0`, `le=64`). Relabel `burst_window_seconds` as unused by grouping. `ScanSummary.duplicate_groups`. CLI prints near-duplicate group count. Pipeline tests: identical pair grouped, different image not, rejects ungrouped. Update `phaicull.toml.example`.
 - [ ] **G5. Docs + DEC-009:** `docs/grouping.md` (algorithm, ephemeral ids, what pHash will / will not group). DEC-009 in `docs/decisions.md`. Retarget JSON contract from this plan to `docs/grouping.md`. README Phase 1 / burst wording. Mark TODO grouping done.
 
 **Notes:**

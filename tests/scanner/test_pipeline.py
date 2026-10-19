@@ -5,11 +5,38 @@ from __future__ import annotations
 import asyncio
 from pathlib import Path
 
+import numpy as np
+import pytest
 from PIL import Image
 
 from core.config import Config
 from core.database.dao import open_project_connection
+from core.scanner import pipeline
 from core.scanner.pipeline import ScanSummary, run_scan
+
+
+def _structured_image(size: int = 256) -> Image.Image:
+    """Photo-like low-frequency structure, so pHash bits survive a JPEG re-save.
+
+    Solid colors all hash alike; too-simple patterns leave bits near the median.
+    """
+    yy, xx = np.mgrid[0:size, 0:size].astype(np.float32)
+    gray = (
+        128
+        + 55 * np.sin(xx / 17.0)
+        + 45 * np.cos(yy / 23.0)
+        + 25 * np.sin((xx + 2 * yy) / 31.0)
+    )
+    return Image.fromarray(np.clip(gray, 0, 255).astype(np.uint8)).convert("RGB")
+
+
+def _group_ids_by_name(scan_root: Path) -> dict[str, int | None]:
+    conn = open_project_connection(scan_root)
+    try:
+        rows = conn.execute("SELECT file_path, group_id FROM files").fetchall()
+        return {Path(r["file_path"]).name: r["group_id"] for r in rows}
+    finally:
+        conn.close()
 
 
 def test_scan_small_directory(tmp_path: Path) -> None:
@@ -159,6 +186,69 @@ def test_rescan_does_not_duplicate_mime_rejected(tmp_path: Path) -> None:
         ).fetchall()
         assert len(rows) == 1
         assert rows[0]["file_path"].endswith("notes.txt")
+    finally:
+        conn.close()
+
+
+def test_scan_groups_near_duplicates(tmp_path: Path) -> None:
+    """Two saves of one photo share a group; a different photo and rejects stay NULL."""
+    scan_root = tmp_path / "photos"
+    scan_root.mkdir()
+    photo = _structured_image()
+    photo.save(scan_root / "shot.jpg", "JPEG", quality=95)
+    photo.save(scan_root / "shot_copy.jpg", "JPEG", quality=60)
+    photo.rotate(90).save(scan_root / "other.jpg", "JPEG")
+    (scan_root / "broken.jpg").write_bytes(b"\xff\xd8\xff\xe0JUNK")
+    (scan_root / "notes.txt").write_text("not an image")
+
+    summary = asyncio.run(run_scan(scan_root, Config()))
+
+    assert summary.duplicate_groups == 1
+    groups = _group_ids_by_name(scan_root)
+    assert groups["shot.jpg"] is not None
+    assert groups["shot.jpg"] == groups["shot_copy.jpg"]
+    assert groups["other.jpg"] is None
+    assert groups["broken.jpg"] is None
+    assert groups["notes.txt"] is None
+
+
+def test_rescan_keeps_group_ids(tmp_path: Path) -> None:
+    """An unchanged folder keeps the same group ids across scans."""
+    scan_root = tmp_path / "photos"
+    scan_root.mkdir()
+    photo = _structured_image()
+    photo.save(scan_root / "a.jpg", "JPEG")
+    photo.save(scan_root / "b.jpg", "JPEG")
+    config = Config()
+
+    asyncio.run(run_scan(scan_root, config))
+    first = _group_ids_by_name(scan_root)
+    asyncio.run(run_scan(scan_root, config))
+
+    assert first["a.jpg"] is not None
+    assert _group_ids_by_name(scan_root) == first
+
+
+def test_grouping_failure_keeps_metrics(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """If grouping raises, the scan still finishes and metrics stay in the DB."""
+    scan_root = tmp_path / "photos"
+    scan_root.mkdir()
+    _structured_image().save(scan_root / "a.jpg", "JPEG")
+
+    def fail(*_args: object, **_kwargs: object) -> None:
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(pipeline, "regroup", fail)
+    summary = asyncio.run(run_scan(scan_root, Config()))
+
+    assert summary.processed == 1
+    assert summary.duplicate_groups == 0
+    conn = open_project_connection(scan_root)
+    try:
+        count = conn.execute("SELECT COUNT(*) FROM metrics").fetchone()[0]
+        assert count > 0
     finally:
         conn.close()
 

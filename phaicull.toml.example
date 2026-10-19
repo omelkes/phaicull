@@ -1,6 +1,10 @@
 # Phaicull configuration example.
 # Copy to phaicull.toml in project root or pass --config path/to/phaicull.toml
 
+# Max pHash Hamming distance (0-64) for two photos to be grouped as near-duplicates.
+# Lower = stricter. Raising it does not group "same activity" photos; it merges different scenes.
+phash_hamming_max = 6
+# Unused by grouping (grouping is visual, not time-based); kept for compatibility.
 burst_window_seconds = 5.0
 heavy_features_enabled = false
 
