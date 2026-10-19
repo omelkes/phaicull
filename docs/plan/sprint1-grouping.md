@@ -1,6 +1,6 @@
 # PLAN — Sprint 1 grouping (visual similarity)
 
-**Status:** In progress (G2 done; G3 plan revised 2026-10-11, awaiting acknowledgment)  
+**Status:** In progress (G3 done)  
 **Branch:** `sprint1-grouping`  
 **Date:** 2026-09-21  
 **TODO:** Sprint 1 §5 Grouping Logic
@@ -155,9 +155,9 @@ Implement only after this plan is **Accepted**.
 
 - [x] **G1. DAO group methods:** `insert_group`, `set_file_group`, `list_files_for_grouping` (`status=ok` + `phash`), `reset_groups` (NULL `group_id` **then** `DELETE FROM groups`), `count_multi_file_groups`. SQL only in `dao.py`. Tests in `tests/database/test_dao.py`. Caller owns the transaction (DAO methods do not commit).
 - [x] **G2. pHash clustering (pure):** `core/grouping/phash_cluster.py` — hex → 64-bit, Hamming via XOR `int.bit_count()`, union-find if distance ≤ max. No timestamps. Invalid/missing hex → no edges, no throw. Tests in `tests/grouping/test_phash_cluster.py`: identical hash, distance 6 vs 7, missing/invalid hex, empty, singleton, transitivity, deterministic membership (sort by file id/path before union).
-- [ ] **G3. Grouping service:** `core/grouping/service.py` — `regroup(conn, *, hamming_max) -> GroupingResult`.
+- [x] **G3. Grouping service:** `core/grouping/service.py` — `regroup(conn, *, hamming_max) -> GroupingResult`.
   - Steps: assert no open transaction → load candidates (DAO) → `cluster_by_phash` → read stored membership → if equal, return `changed=False` with no writes → else `reset_groups`, insert one group per cluster (ordered by smallest file id), `set_file_group` for members, commit. Rollback + re-raise on error.
-  - DAO addition (same commit): `list_group_memberships(conn) -> dict[int, int]` (file_id → group_id for every file with non-NULL group_id, any status). Stored membership = files grouped by group_id, kept only when size ≥ 2.
+  - DAO addition (same commit): `list_group_memberships(conn) -> dict[int, int]` (file_id → group_id for every file with non-NULL group_id, any status). Stored membership = files grouped by group_id, **including singletons**, so a stale one-file group also counts as a change and gets cleared.
   - `GroupingResult` (Pydantic): `candidates`, `invalid_phash` (ok files with missing/invalid hash), `duplicate_groups`, `grouped_files`, `changed`.
   - Tests in `tests/grouping/test_service.py`: identical pair grouped; unrelated hash stays NULL; **unchanged rescan keeps the same ids and writes nothing**; membership change rewrites; **stale `group_id` on a now-`load_failed` file is cleared**; stale ids cleared when **no** valid pairs remain; missing/invalid phash ignored and counted; empty project is a no-op; error mid-write rolls back (previous groups intact); open transaction on entry raises; `hamming_max` out of range raises.
 - [ ] **G4. Pipeline + config:** After `_process_files` commit in `run_scan`, call grouping. Catch grouping errors so metrics remain. Add `phash_hamming_max: int = 6` (`ge=0`, `le=64`). Relabel `burst_window_seconds` as unused by grouping. `ScanSummary.duplicate_groups`. CLI prints near-duplicate group count. Pipeline tests: identical pair grouped, different image not, rejects ungrouped. Update `phaicull.toml.example`.

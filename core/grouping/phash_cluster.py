@@ -14,9 +14,14 @@ _PHASH_HEX_LEN = 16
 class PhashRecord(Protocol):
     """Minimum fields the clusterer reads. GroupingCandidate satisfies this."""
 
-    file_id: int
-    file_path: str
-    phash: str | None
+    @property
+    def file_id(self) -> int: ...
+
+    @property
+    def file_path(self) -> str: ...
+
+    @property
+    def phash(self) -> str | None: ...
 
 
 def parse_phash(value: str | None) -> int | None:

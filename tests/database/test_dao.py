@@ -13,6 +13,7 @@ from core.database.dao import (
     insert_group,
     insert_metric,
     list_files_for_grouping,
+    list_group_memberships,
     list_projects,
     open_project_connection,
     open_registry_connection,
@@ -287,6 +288,22 @@ def test_list_files_for_grouping_ok_only(tmp_path: Path) -> None:
         assert by_path["/photos/nophash.jpg"].file_id == missing
         assert by_path["/photos/nophash.jpg"].phash is None
         assert [row.file_id for row in rows] == sorted(row.file_id for row in rows)
+    finally:
+        conn.close()
+
+
+def test_list_group_memberships_includes_any_status(tmp_path: Path) -> None:
+    """Memberships cover every grouped file, including non-ok ones; ungrouped are absent."""
+    conn = open_project_connection(tmp_path / "photos")
+    try:
+        ok = insert_file(conn, "/photos/ok.jpg", status="ok")
+        failed = insert_file(conn, "/photos/failed.jpg", status="load_failed")
+        insert_file(conn, "/photos/loose.jpg", status="ok")
+        group_id = insert_group(conn)
+        set_file_group(conn, ok, group_id)
+        set_file_group(conn, failed, group_id)
+        conn.commit()
+        assert list_group_memberships(conn) == {ok: group_id, failed: group_id}
     finally:
         conn.close()
 

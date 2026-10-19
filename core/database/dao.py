@@ -174,6 +174,12 @@ def list_files_for_grouping(conn: sqlite3.Connection) -> list[GroupingCandidate]
     ]
 
 
+def list_group_memberships(conn: sqlite3.Connection) -> dict[int, int]:
+    """Return file_id -> group_id for every file with a group, any status. Does not commit."""
+    cursor = conn.execute("SELECT id, group_id FROM files WHERE group_id IS NOT NULL")
+    return {int(row[0]): int(row[1]) for row in cursor.fetchall()}
+
+
 def reset_groups(conn: sqlite3.Connection) -> None:
     """Clear every group_id, then delete groups rows. Does not commit.
 
