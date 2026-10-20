@@ -15,6 +15,7 @@ from core.database.dao import (
     insert_metric,
     list_files_for_grouping,
     list_group_memberships,
+    list_metric_values,
     list_projects,
     open_project_connection,
     open_registry_connection,
@@ -169,6 +170,27 @@ def test_existing_file_ids(tmp_path: Path) -> None:
         b = insert_file(conn, "/photos/b.jpg", status="ok")
         assert existing_file_ids(conn, [a, b, 999]) == {a, b}
         assert existing_file_ids(conn, []) == set()
+    finally:
+        conn.close()
+
+
+def test_list_metric_values_ok_files_only(tmp_path: Path) -> None:
+    """Every ok file is listed (None when the metric is missing); other statuses are not."""
+    conn = open_project_connection(tmp_path / "photos")
+    try:
+        a = insert_file(conn, "/photos/a.jpg", status="ok")
+        b = insert_file(conn, "/photos/b.jpg", status="ok")
+        bad = insert_file(conn, "/photos/bad.jpg", status="load_failed")
+        insert_metric(conn, a, "blur_score", value_real=0.25)
+        insert_metric(conn, a, "brightness_score", value_real=0.9)
+        insert_metric(conn, bad, "blur_score", value_real=0.1)
+
+        rows = list_metric_values(conn, "blur_score")
+
+        assert [(r.file_id, r.file_path, r.value_real) for r in rows] == [
+            (a, "/photos/a.jpg", 0.25),
+            (b, "/photos/b.jpg", None),
+        ]
     finally:
         conn.close()
 

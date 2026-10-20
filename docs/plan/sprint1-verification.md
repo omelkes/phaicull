@@ -48,6 +48,6 @@ Generated photos prove speed and stability. They only **indicate** blur ranking:
 
 ## Atomic tasks
 
-- [ ] **V1. DAO read:** `list_metric_values(conn, metric_name)` for `status='ok'` files. Tests.
+- [x] **V1. DAO read:** `list_metric_values(conn, metric_name)` for `status='ok'` files. Tests.
 - [ ] **V2. Verify script:** `generate` and `run`; pure check helpers unit-tested; docs (README).
 - [ ] **V3. Results:** run on generated photos, record results here, update TODO.
