@@ -7,6 +7,7 @@ from core.database.dao import (
     count_multi_file_groups,
     ensure_project_db,
     ensure_registry_db,
+    existing_file_ids,
     get_project_db_path,
     get_registry_db_path,
     insert_file,
@@ -157,6 +158,17 @@ def test_insert_file_status_reason_set_and_cleared(tmp_path: Path) -> None:
         insert_file(conn, "/photos/a.jpg", status="ok")
         row = conn.execute("SELECT status_reason FROM files WHERE id = ?", (fid,)).fetchone()
         assert row["status_reason"] is None
+    finally:
+        conn.close()
+
+
+def test_existing_file_ids(tmp_path: Path) -> None:
+    conn = open_project_connection(tmp_path / "photos")
+    try:
+        a = insert_file(conn, "/photos/a.jpg", status="ok")
+        b = insert_file(conn, "/photos/b.jpg", status="ok")
+        assert existing_file_ids(conn, [a, b, 999]) == {a, b}
+        assert existing_file_ids(conn, []) == set()
     finally:
         conn.close()
 

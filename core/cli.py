@@ -20,6 +20,9 @@ app = typer.Typer(
     no_args_is_help=True,
 )
 console = Console()
+err_console = Console(stderr=True)
+
+EXIT_INTERRUPTED = 130  # shell convention: 128 + SIGINT
 
 
 def _version_callback(value: bool) -> None:
@@ -77,7 +80,14 @@ def scan(
         f"{cfg.loader.max_image_dimension}px max dimension"
     )
 
-    summary = asyncio.run(run_scan(folder, cfg))
+    try:
+        summary = asyncio.run(run_scan(folder, cfg))
+    except KeyboardInterrupt:
+        err_console.print(
+            "[bold yellow]Scan interrupted[/bold yellow] — completed batches are saved; "
+            "run the scan again to finish."
+        )
+        raise typer.Exit(EXIT_INTERRUPTED) from None
 
     console.print("\n[bold green]Scan complete[/bold green]")
     console.print(f"  Discovered: {summary.total_discovered}")

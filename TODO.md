@@ -110,7 +110,7 @@ Plan for this section: [`docs/plan/sprint1-cli-resilience.md`](docs/plan/sprint1
 - [x] **CLI scan command:** `phaicull scan <folder> [--config]` (positional folder; no `--folder` flag).
 - [x] **Deterministic scan mode:** Results are written in sorted discovery order, so the same folder gets the same `files.id` / `thumb_<id>.jpg` for any worker count. Fixed seeds: none needed (no randomness in Sprint 1 analyzers or grouping).
 - [x] **Error handling:** Unreadable/corrupted images are skipped (`status=load_failed`), the reason is logged (WARNING) and stored in `files.status_reason`; the CLI summary lists failures by reason. **Migration 004** adds the nullable column (additive; old rows read NULL). DEC-010.
-- [ ] **Interrupt handling:** Handle Ctrl+C to end scan gracefully, close DB connection, and write correct output to stdout/stderr.
+- [x] **Interrupt handling:** Ctrl+C keeps committed batches, rolls back the partial batch (and its new thumbnails), cancels queued files, skips grouping, prints "Scan interrupted" to stderr and exits 130. Workers ignore SIGINT; repeated Ctrl+C (or `uv run` forwarding) cannot abort cleanup. Verified end-to-end with `uv run` on 400 photos.
 
 
 
@@ -198,6 +198,7 @@ Sprint 3 is experimental and may be partially abandoned without blocking the pro
 
 - [ ] Keep TODO aligned with actual code structure. Detailed plans live in `[docs/plan/](docs/plan/README.md)`; TODO stays a checklist.
 - [ ] Move completed tasks into CHANGELOG or release notes
+- [ ] **Orphan thumbnails after a hard kill:** a SIGKILL between thumbnail rename and batch commit can leave `thumb_<id>.jpg` with no row (upsert advances AUTOINCREMENT, so the id is not reliably reused). Consider sweeping `thumbs/` for ids not in `files` at scan start. Found 2026-10-11 (Sprint 1 §6).
 - [ ] **Schema pragmatism:** start denormalized, refactor after Sprints if needed
    [x] Fix `schema_version` numeric ordering bug in migrations (TEXT vs integer ordering)
 

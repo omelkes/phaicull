@@ -1,6 +1,6 @@
 # PLAN — Sprint 1 §6: CLI integration & resilience
 
-**Status:** In progress (accepted 2026-10-11: status_reason column, keep positional CLI)  
+**Status:** Done (accepted 2026-10-11: status_reason column, keep positional CLI)  
 **Branch:** `sprint1-cli-resilience`  
 **Date:** 2026-10-11  
 **TODO:** Sprint 1 §6
@@ -101,4 +101,14 @@ Output streams: human summary on stdout (Rich), logs on stderr (loguru default).
 - [x] **C1. CLI command wording:** Mark "CLI scan command" done; fix `--folder` wording in TODO and `json_contract_scan_v1.md`. Docs only.
 - [x] **C2. Deterministic order:** Await results in submission order in `_process_files`. Tests: same folder scanned into two fresh DBs with `max_workers=1` and `max_workers=4` → identical `(id, file_path)` lists and thumbnail names; rescan keeps ids. Document "fixed seeds: none needed" in TODO.
 - [x] **C3. Skip reasons:** Loader returns a reason code; `FileResult.status_reason`; migration 004 `files.status_reason TEXT NULL`; `insert_file(..., status_reason=None)`; cleared to NULL when a file loads again. Log reason at WARNING with path. CLI prints load failures grouped by reason. Tests: each reason code via loader; pipeline stores it; recovery clears it; migration test. Docs: JSON contract per-file `status_reason` (optional), schema docs.
-- [ ] **C4. Ctrl+C:** Worker initializer ignores SIGINT; pipeline catches `KeyboardInterrupt`/`CancelledError`, `executor.shutdown(cancel_futures=True)`, `conn.rollback()`, skips grouping, re-raises; CLI prints "Scan interrupted" to stderr, exit 130. Tests: interrupt after N results → committed batches kept, partial batch rolled back, no grouping, staging dir removed, CLI exit 130.
+- [x] **C4. Ctrl+C:** Worker initializer ignores SIGINT; pipeline catches `KeyboardInterrupt`/`CancelledError`, `executor.shutdown(cancel_futures=True)`, `conn.rollback()`, skips grouping, re-raises; CLI prints "Scan interrupted" to stderr, exit 130. Tests: interrupt after N results → committed batches kept, partial batch rolled back, no grouping, staging dir removed, CLI exit 130.
+
+---
+
+## Findings during C4 (end-to-end Ctrl+C on 400 photos via `uv run`)
+
+1. **Ctrl+C was ignored while workers were ahead.** `asyncio.run` turns SIGINT into task cancellation, which is only delivered when the task suspends. Awaiting an already-finished future does not suspend, so the scan ran to completion. Fix: `await asyncio.sleep(0)` after each written result.
+2. **Several SIGINTs arrive** (process group + `uv run` forwarding, or an impatient user). The second one raises `KeyboardInterrupt` immediately and aborted pool shutdown, so exit hung waiting for the whole queue. Fix: `_sigint_ignored()` around cleanup (main thread only; previous handler restored).
+3. **`shutdown(wait=False)` then `shutdown(wait=True)` does not wait**: the first call drops the manager-thread reference. Use a single `shutdown(wait=True, cancel_futures=True)`.
+4. **Orphan thumbnails:** the upsert in `insert_file` advances AUTOINCREMENT even when it updates, so a rolled-back new file gets a different id next scan. Thumbnails placed for rolled-back new rows are now deleted (`existing_file_ids`). Hard-kill case logged in TODO.
+5. Files already in the pool's call queue (≤ 2 × workers) still finish after Ctrl+C; stop takes about 1 s.

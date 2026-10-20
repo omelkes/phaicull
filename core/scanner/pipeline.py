@@ -10,8 +10,12 @@ import asyncio
 import multiprocessing as mp
 import os
 import shutil
+import signal
 import sqlite3
+import threading
+from collections.abc import Iterator
 from concurrent.futures import ProcessPoolExecutor
+from contextlib import contextmanager
 from functools import partial
 from pathlib import Path
 
@@ -20,10 +24,15 @@ from pydantic import BaseModel, Field
 
 from core.analyzers import get_sprint1_analyzers
 from core.config import Config
-from core.database.dao import insert_file, insert_metric, open_project_connection
+from core.database.dao import (
+    existing_file_ids,
+    insert_file,
+    insert_metric,
+    open_project_connection,
+)
 from core.grouping import regroup
 from core.scanner.walker import discover_files
-from core.scanner.worker import FileResult, process_file
+from core.scanner.worker import FileResult, ignore_sigint, process_file
 from core.utils.thumbnail import STAGING_SUBDIR, get_thumbs_dir, thumbnail_name
 
 BATCH_COMMIT_SIZE = 50
@@ -76,6 +85,10 @@ async def run_scan(scan_root: Path, config: Config) -> ScanSummary:
 
     Brain (this coroutine): file-walking, I/O, DB writes.
     Brawn (ProcessPoolExecutor): image loading + analyzers.
+
+    On Ctrl+C (KeyboardInterrupt / CancelledError) committed batches are kept,
+    the partial batch is rolled back, grouping is skipped, and the exception
+    propagates to the caller.
     """
     scan_root = scan_root.resolve()
     summary = ScanSummary()
@@ -135,33 +148,72 @@ async def _process_files(
         max_dimension=config.loader.max_image_dimension,
         thumbnail_staging_dir=staging_dir,
     )
+    executor = ProcessPoolExecutor(
+        max_workers=max_workers, mp_context=_mp_context(), initializer=ignore_sigint
+    )
+    written = 0
+    batch_thumbs: dict[int, Path] = {}  # placed for rows not yet committed
     try:
-        with ProcessPoolExecutor(
-            max_workers=max_workers, mp_context=_mp_context()
-        ) as executor:
-            futures = [loop.run_in_executor(executor, worker_fn, fp) for fp in files]
+        futures = [loop.run_in_executor(executor, worker_fn, fp) for fp in files]
 
-            # Write in discovery order, not completion order: new files get the
-            # same files.id (and thumb_<id>.jpg) regardless of worker count.
-            pending = 0
-            for i, future in enumerate(futures):
-                result: FileResult = await future
-                _write_result_to_db(conn, result, summary, thumbs_dir)
-                pending += 1
+        # Write in discovery order, not completion order: new files get the
+        # same files.id (and thumb_<id>.jpg) regardless of worker count.
+        pending = 0
+        for future in futures:
+            result: FileResult = await future
+            _write_result_to_db(conn, result, summary, thumbs_dir, batch_thumbs)
+            pending += 1
+            # Awaiting an already-finished future does not yield to the loop, so
+            # without this a Ctrl+C cancellation is never delivered while workers
+            # are ahead of the writer.
+            await asyncio.sleep(0)
 
-                if pending >= BATCH_COMMIT_SIZE:
-                    conn.commit()
-                    pending = 0
-                    logger.info(
-                        "Progress: {}/{} files processed",
-                        i + 1,
-                        summary.total_discovered,
-                    )
-
-            if pending > 0:
+            if pending >= BATCH_COMMIT_SIZE:
                 conn.commit()
+                written += pending
+                pending = 0
+                batch_thumbs.clear()
+                logger.info(
+                    "Progress: {}/{} files processed", written, summary.total_discovered
+                )
+
+        if pending > 0:
+            conn.commit()
+    except BaseException:
+        # Ctrl+C arrives as CancelledError (asyncio.run) or KeyboardInterrupt.
+        with _sigint_ignored():
+            conn.rollback()
+            _remove_orphan_thumbnails(conn, batch_thumbs)
+            logger.warning(
+                "Scan stopping: {}/{} files committed, partial batch rolled back; "
+                "waiting for files already in progress",
+                written,
+                summary.total_discovered,
+            )
+            executor.shutdown(wait=True, cancel_futures=True)
+        raise
+    else:
+        executor.shutdown(wait=True)
     finally:
         shutil.rmtree(staging_dir, ignore_errors=True)
+
+
+@contextmanager
+def _sigint_ignored() -> Iterator[None]:
+    """Ignore further Ctrl+C while stopping the pool.
+
+    A second SIGINT (impatient user, or `uv run` forwarding the signal) would
+    otherwise abort the shutdown and leave queued files running at exit.
+    """
+    if threading.current_thread() is not threading.main_thread():
+        yield
+        return
+    previous = signal.signal(signal.SIGINT, signal.SIG_IGN)
+    try:
+        yield
+    finally:
+        if previous is not None:
+            signal.signal(signal.SIGINT, previous)
 
 
 def _run_grouping(conn: sqlite3.Connection, config: Config, summary: ScanSummary) -> None:
@@ -174,18 +226,31 @@ def _run_grouping(conn: sqlite3.Connection, config: Config, summary: ScanSummary
     summary.duplicate_groups = result.duplicate_groups
 
 
-def _place_thumbnail(result: FileResult, thumb_path: Path, summary: ScanSummary) -> None:
+def _place_thumbnail(result: FileResult, thumb_path: Path, summary: ScanSummary) -> bool:
     """Move the worker's staged thumbnail to thumb_<id>.jpg (atomic replace)."""
     if result.thumbnail_failed or result.staged_thumbnail is None:
         summary.thumbnail_errors += 1
-        return
+        return False
     try:
         Path(result.staged_thumbnail).replace(thumb_path)
     except OSError:
         summary.thumbnail_errors += 1
         logger.debug("Cannot place thumbnail for {}", result.file_path)
-        return
+        return False
     summary.thumbnails += 1
+    return True
+
+
+def _remove_orphan_thumbnails(conn: sqlite3.Connection, placed: dict[int, Path]) -> None:
+    """After a rollback, delete thumbnails whose new row no longer exists.
+
+    Rows that existed before the batch keep their id, so their (refreshed)
+    thumbnail stays. A rolled-back new file gets a different id next scan.
+    """
+    kept = existing_file_ids(conn, placed)
+    for file_id, thumb in placed.items():
+        if file_id not in kept:
+            thumb.unlink(missing_ok=True)
 
 
 def _write_mime_rejections(conn: sqlite3.Connection, rejected: list[Path]) -> None:
@@ -201,8 +266,12 @@ def _write_result_to_db(
     result: FileResult,
     summary: ScanSummary,
     thumbs_dir: Path,
+    placed_thumbs: dict[int, Path],
 ) -> None:
-    """Write a FileResult to the project DB and update summary counters."""
+    """Write a FileResult to the project DB and update summary counters.
+
+    Thumbnails placed for this file are recorded in placed_thumbs (by file id).
+    """
     file_id = insert_file(
         conn,
         result.file_path,
@@ -221,7 +290,8 @@ def _write_result_to_db(
 
     summary.processed += 1
     summary.analyzer_errors += result.analyzer_errors
-    _place_thumbnail(result, thumb_path, summary)
+    if _place_thumbnail(result, thumb_path, summary):
+        placed_thumbs[file_id] = thumb_path
 
     for metric in result.metrics:
         try:

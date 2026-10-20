@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import signal
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pytest
@@ -416,3 +419,111 @@ def test_scan_ignores_own_phaicull_db(tmp_path: Path) -> None:
         assert all("/phaicull/" not in r["file_path"] for r in rows)
     finally:
         conn.close()
+
+
+def _interrupt_on_write(
+    monkeypatch: pytest.MonkeyPatch, nth: int, interrupt: Callable[[], None]
+) -> None:
+    """Write the nth result to the DB, then interrupt (before its batch commits)."""
+    real_write = pipeline._write_result_to_db
+    calls = 0
+
+    def write(*args: Any, **kwargs: Any) -> None:
+        nonlocal calls
+        real_write(*args, **kwargs)
+        calls += 1
+        if calls == nth:
+            interrupt()
+
+    monkeypatch.setattr(pipeline, "BATCH_COMMIT_SIZE", 2)
+    monkeypatch.setattr(pipeline, "_write_result_to_db", write)
+
+
+def _make_duplicate_folder(scan_root: Path, count: int = 6) -> None:
+    scan_root.mkdir()
+    for i in range(count):
+        _structured_image(size=64).save(scan_root / f"img_{i}.png", "PNG")
+
+
+def _thumb_names(scan_root: Path) -> list[str]:
+    return sorted(p.name for p in (scan_root / "phaicull" / "thumbs").iterdir())
+
+
+def _assert_interrupted_state(scan_root: Path) -> None:
+    """Two batches of 2 committed, 5th write rolled back, no grouping, staging gone."""
+    groups = _group_ids_by_name(scan_root)
+    assert sorted(groups) == ["img_0.png", "img_1.png", "img_2.png", "img_3.png"]
+    assert all(g is None for g in groups.values())
+    conn = open_project_connection(scan_root)
+    try:
+        assert conn.execute("SELECT COUNT(*) FROM groups").fetchone()[0] == 0
+    finally:
+        conn.close()
+    # The rolled-back 5th row must not leave thumb_5.jpg behind.
+    ids = _file_ids_by_name(scan_root)
+    assert _thumb_names(scan_root) == sorted(f"thumb_{i}.jpg" for i in ids.values())
+
+
+def _raise_keyboard_interrupt() -> None:
+    raise KeyboardInterrupt
+
+
+def test_keyboard_interrupt_rolls_back_partial_batch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    scan_root = tmp_path / "photos"
+    _make_duplicate_folder(scan_root)
+    _interrupt_on_write(monkeypatch, 5, _raise_keyboard_interrupt)
+
+    with pytest.raises(KeyboardInterrupt):
+        asyncio.run(run_scan(scan_root, Config()))
+
+    _assert_interrupted_state(scan_root)
+
+
+def test_sigint_cancels_scan_and_raises_keyboard_interrupt(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Real Ctrl+C path: asyncio.run cancels the task, then raises KeyboardInterrupt."""
+    scan_root = tmp_path / "photos"
+    _make_duplicate_folder(scan_root)
+    _interrupt_on_write(monkeypatch, 5, lambda: signal.raise_signal(signal.SIGINT))
+
+    with pytest.raises(KeyboardInterrupt):
+        asyncio.run(run_scan(scan_root, Config()))
+
+    _assert_interrupted_state(scan_root)
+
+
+def test_rescan_after_interrupt_completes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    scan_root = tmp_path / "photos"
+    _make_duplicate_folder(scan_root)
+    _interrupt_on_write(monkeypatch, 5, _raise_keyboard_interrupt)
+    with pytest.raises(KeyboardInterrupt):
+        asyncio.run(run_scan(scan_root, Config()))
+    monkeypatch.undo()
+
+    summary = asyncio.run(run_scan(scan_root, Config()))
+
+    assert summary.processed == 6
+    assert summary.duplicate_groups == 1
+    ids = _file_ids_by_name(scan_root)
+    assert _thumb_names(scan_root) == sorted(f"thumb_{i}.jpg" for i in ids.values())
+
+
+def test_interrupt_keeps_refreshed_thumbnail_of_existing_row(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Rolled-back rows that existed before keep their id, so their thumbnail stays."""
+    scan_root = tmp_path / "photos"
+    _make_duplicate_folder(scan_root)
+    asyncio.run(run_scan(scan_root, Config()))
+    before = _thumb_names(scan_root)
+
+    _interrupt_on_write(monkeypatch, 5, _raise_keyboard_interrupt)
+    with pytest.raises(KeyboardInterrupt):
+        asyncio.run(run_scan(scan_root, Config()))
+
+    assert _thumb_names(scan_root) == before

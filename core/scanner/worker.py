@@ -8,6 +8,7 @@ and returns a FileResult. No DB access, no asyncio.
 from __future__ import annotations
 
 import hashlib
+import signal
 import uuid
 from pathlib import Path
 
@@ -40,6 +41,15 @@ class FileResult(BaseModel):
     thumbnail_failed: bool = Field(
         default=False, description="Thumbnail generation was attempted and raised."
     )
+
+
+def ignore_sigint() -> None:
+    """Pool initializer: Ctrl+C is handled by the Brain only.
+
+    A terminal Ctrl+C reaches the whole process group; without this every
+    worker would print a KeyboardInterrupt traceback.
+    """
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
 
 
 def _compute_content_hash(path: Path) -> str | None:

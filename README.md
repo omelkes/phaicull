@@ -32,6 +32,8 @@ Phaicull uses a multi-layered approach to analyze your library:
 - **Run tests:** `uv run pytest`
 - **CLI:** `uv run phaicull --help` or `uv run phaicull scan <folder>`. Each scan also groups
   visual near-duplicates (pHash, not time); see [`docs/grouping.md`](docs/grouping.md).
+  Ctrl+C stops a scan safely (exit code 130): finished batches stay saved, and the
+  next scan picks up the rest.
 
 **Supported image formats:** JPEG, PNG, HEIC/HEIF (iPhone), GIF, WebP. Files are
 validated by magic bytes, not extension; anything else is recorded as skipped.

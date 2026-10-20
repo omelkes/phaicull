@@ -8,6 +8,7 @@ All SQL lives in this module (per AGENTS.md). Two databases:
 from __future__ import annotations
 
 import sqlite3
+from collections.abc import Iterable
 from pathlib import Path
 from typing import NamedTuple
 
@@ -95,6 +96,16 @@ def insert_file(
     )
     row = conn.execute("SELECT id FROM files WHERE file_path = ?", (file_path,)).fetchone()
     return row[0] if row else 0
+
+
+def existing_file_ids(conn: sqlite3.Connection, file_ids: Iterable[int]) -> set[int]:
+    """Return the subset of file_ids that have a row in files."""
+    ids = list(file_ids)
+    if not ids:
+        return set()
+    placeholders = ",".join("?" * len(ids))
+    rows = conn.execute(f"SELECT id FROM files WHERE id IN ({placeholders})", ids)
+    return {row[0] for row in rows}
 
 
 # --- Project DB: metrics ---

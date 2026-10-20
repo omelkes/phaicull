@@ -4,9 +4,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 from core.cli import app
+from core.scanner import pipeline
 
 runner = CliRunner()
 
@@ -79,3 +81,18 @@ def test_scan_reports_load_failure_reasons(tmp_path: Path) -> None:
 
     assert result.exit_code == 0
     assert "Load failures: 1 (cannot_open: 1)" in result.output
+
+
+def test_scan_interrupted_exits_130(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Ctrl+C: message on stderr, no summary, exit code 130."""
+
+    async def interrupted(*_args: object) -> None:
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(pipeline, "run_scan", interrupted)
+
+    result = runner.invoke(app, ["scan", str(tmp_path)])
+
+    assert result.exit_code == 130
+    assert "Scan interrupted" in result.stderr
+    assert "Scan complete" not in result.output
