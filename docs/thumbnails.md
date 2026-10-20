@@ -53,3 +53,26 @@ Given a `files` row:
 - If a thumbnail is missing or stale, it is safe to regenerate it; the
   filename remains the same.
 
+### Implemented (Sprint 1)
+
+- Generated **during every scan** for each file with `status = 'ok'`
+  (`core/utils/thumbnail.py`, called from the Brawn worker).
+- Made from the **same decoded, EXIF-oriented image** the analyzers use — the
+  source file is never decoded twice.
+- JPEG, quality 85, longest side 300px. Smaller images are **not upscaled**.
+- Thumbnails are regenerated on every scan, so a changed photo gets a fresh one.
+- A file that becomes `load_failed` has its old `thumb_<id>.jpg` **removed**, so
+  the UI does not keep showing a photo that no longer opens.
+- A thumbnail failure never fails the file: status and metrics are kept, and the
+  scan summary reports `thumbnail_errors` (CLI: "Thumbnail errors").
+
+How the `files.id` name is assigned: the worker does not know the row id (the
+Brain assigns it on insert), so it writes the thumbnail under a random name in
+`thumbs/.staging/`, and the Brain atomically renames it to `thumb_<id>.jpg` right
+after writing the row. `.staging/` is cleared at the start and end of each scan.
+UIs should ignore it.
+
+Known limit: thumbnails are renamed before the DB batch commits. If a scan is
+killed in between, a `thumb_<id>.jpg` may exist for an id that was rolled back;
+the next scan overwrites or removes it.
+

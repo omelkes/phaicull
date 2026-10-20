@@ -87,6 +87,8 @@ def scan(
         console.print(f"  [yellow]Skipped (not an image):[/yellow] {summary.skipped_mime}")
     if summary.load_failed:
         console.print(f"  [yellow]Load failures:[/yellow] {summary.load_failed}")
+    if summary.thumbnail_errors:
+        console.print(f"  [yellow]Thumbnail errors:[/yellow] {summary.thumbnail_errors}")
     if summary.analyzer_errors:
         console.print(f"  [yellow]Analyzer errors:[/yellow] {summary.analyzer_errors}")
 

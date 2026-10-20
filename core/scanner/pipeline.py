@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import multiprocessing as mp
 import os
+import shutil
 import sqlite3
 from concurrent.futures import ProcessPoolExecutor
 from functools import partial
@@ -23,6 +24,7 @@ from core.database.dao import insert_file, insert_metric, open_project_connectio
 from core.grouping import regroup
 from core.scanner.walker import discover_files
 from core.scanner.worker import FileResult, process_file
+from core.utils.thumbnail import STAGING_SUBDIR, get_thumbs_dir, thumbnail_name
 
 BATCH_COMMIT_SIZE = 50
 
@@ -43,6 +45,10 @@ class ScanSummary(BaseModel):
     )
     duplicate_groups: int = Field(
         default=0, description="Near-duplicate groups (two or more files) after grouping."
+    )
+    thumbnails: int = Field(default=0, description="Thumbnails written this scan.")
+    thumbnail_errors: int = Field(
+        default=0, description="Processed files whose thumbnail could not be written."
     )
 
 
@@ -85,7 +91,7 @@ async def run_scan(scan_root: Path, config: Config) -> ScanSummary:
         _write_mime_rejections(conn, discovery.rejected_mime)
 
         if files:
-            await _process_files(conn, files, config, summary)
+            await _process_files(conn, files, config, summary, get_thumbs_dir(scan_root))
 
         _run_grouping(conn, config, summary)
     finally:
@@ -108,40 +114,49 @@ async def _process_files(
     files: list[Path],
     config: Config,
     summary: ScanSummary,
+    thumbs_dir: Path,
 ) -> None:
     """Dispatch files to Brawn workers and batch-write results."""
     analyzers = get_sprint1_analyzers()
     loop = asyncio.get_running_loop()
     max_workers = _resolve_max_workers(config, len(files))
 
+    staging_dir = thumbs_dir / STAGING_SUBDIR
+    shutil.rmtree(staging_dir, ignore_errors=True)  # leftovers from an interrupted scan
+    staging_dir.mkdir(parents=True, exist_ok=True)
+
     worker_fn = partial(
         process_file,
         analyzers=analyzers,
         max_file_size_bytes=config.loader.max_file_size_bytes,
         max_dimension=config.loader.max_image_dimension,
+        thumbnail_staging_dir=staging_dir,
     )
-    with ProcessPoolExecutor(
-        max_workers=max_workers, mp_context=_mp_context()
-    ) as executor:
-        futures = [loop.run_in_executor(executor, worker_fn, fp) for fp in files]
+    try:
+        with ProcessPoolExecutor(
+            max_workers=max_workers, mp_context=_mp_context()
+        ) as executor:
+            futures = [loop.run_in_executor(executor, worker_fn, fp) for fp in files]
 
-        pending = 0
-        for i, coro in enumerate(asyncio.as_completed(futures)):
-            result: FileResult = await coro
-            _write_result_to_db(conn, result, summary)
-            pending += 1
+            pending = 0
+            for i, coro in enumerate(asyncio.as_completed(futures)):
+                result: FileResult = await coro
+                _write_result_to_db(conn, result, summary, thumbs_dir)
+                pending += 1
 
-            if pending >= BATCH_COMMIT_SIZE:
+                if pending >= BATCH_COMMIT_SIZE:
+                    conn.commit()
+                    pending = 0
+                    logger.info(
+                        "Progress: {}/{} files processed",
+                        i + 1,
+                        summary.total_discovered,
+                    )
+
+            if pending > 0:
                 conn.commit()
-                pending = 0
-                logger.info(
-                    "Progress: {}/{} files processed",
-                    i + 1,
-                    summary.total_discovered,
-                )
-
-        if pending > 0:
-            conn.commit()
+    finally:
+        shutil.rmtree(staging_dir, ignore_errors=True)
 
 
 def _run_grouping(conn: sqlite3.Connection, config: Config, summary: ScanSummary) -> None:
@@ -152,6 +167,20 @@ def _run_grouping(conn: sqlite3.Connection, config: Config, summary: ScanSummary
         logger.exception("Grouping failed; scan metrics are kept")
         return
     summary.duplicate_groups = result.duplicate_groups
+
+
+def _place_thumbnail(result: FileResult, thumb_path: Path, summary: ScanSummary) -> None:
+    """Move the worker's staged thumbnail to thumb_<id>.jpg (atomic replace)."""
+    if result.thumbnail_failed or result.staged_thumbnail is None:
+        summary.thumbnail_errors += 1
+        return
+    try:
+        Path(result.staged_thumbnail).replace(thumb_path)
+    except OSError:
+        summary.thumbnail_errors += 1
+        logger.debug("Cannot place thumbnail for {}", result.file_path)
+        return
+    summary.thumbnails += 1
 
 
 def _write_mime_rejections(conn: sqlite3.Connection, rejected: list[Path]) -> None:
@@ -166,6 +195,7 @@ def _write_result_to_db(
     conn: sqlite3.Connection,
     result: FileResult,
     summary: ScanSummary,
+    thumbs_dir: Path,
 ) -> None:
     """Write a FileResult to the project DB and update summary counters."""
     file_id = insert_file(
@@ -174,13 +204,16 @@ def _write_result_to_db(
         content_hash=result.content_hash,
         status=result.status,
     )
+    thumb_path = thumbs_dir / thumbnail_name(file_id)
 
     if result.status == "load_failed":
         summary.load_failed += 1
+        thumb_path.unlink(missing_ok=True)  # do not keep showing a photo that no longer loads
         return
 
     summary.processed += 1
     summary.analyzer_errors += result.analyzer_errors
+    _place_thumbnail(result, thumb_path, summary)
 
     for metric in result.metrics:
         try:

@@ -70,7 +70,7 @@
 
 ### 5. Post-Processing (Grouping & Caching)
 - [x] **Grouping Logic:** Visual near-duplicate clusters via pHash Hamming (not time), run at the end of every scan. Activity/scene groups wait for embeddings. Contract: [`docs/grouping.md`](docs/grouping.md); DEC-009; plan: [`docs/plan/sprint1-grouping.md`](docs/plan/sprint1-grouping.md).
-- [ ] **Thumbnailer:** Generate and cache 300px thumbnails locally.
+- [x] **Thumbnailer:** 300px JPEG thumbnails at `phaicull/thumbs/thumb_<id>.jpg`, generated during each scan from the already-decoded image (no second decode). See `core/utils/thumbnail.py` and [`docs/thumbnails.md`](docs/thumbnails.md).
 
 ### 6. CLI Integration & Resilience
 - [ ] **CLI scan command:** Create `cli.py scan --folder ~/Pictures`.
