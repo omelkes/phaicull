@@ -134,7 +134,8 @@ Plan for this section: [`docs/plan/sprint1-cli-resilience.md`](docs/plan/sprint1
 
 ## 💡 Sprint 3: The Brain Training and experiment (AI fine tuning learning phase)
 
-Sprint 3 is experimental and may be partially abandoned without blocking the product. Try aNow nd decide the best result
+Sprint 3 is experimental and may be partially abandoned without blocking the product.
+Try and decide the best result
 
 - [ ] **Dataset Curation:** Create a small test set of "Good" vs "Bad" family photos for internal benchmarking.
 - [ ] **Aesthetic Scorer:** Research/Train a lightweight MLP (Multi-Layer Perceptron) that maps CLIP embeddings to an "Aesthetic Score."
@@ -200,7 +201,7 @@ Sprint 3 is experimental and may be partially abandoned without blocking the pro
 - [ ] Move completed tasks into CHANGELOG or release notes
 - [ ] **Orphan thumbnails after a hard kill:** a SIGKILL between thumbnail rename and batch commit can leave `thumb_<id>.jpg` with no row (upsert advances AUTOINCREMENT, so the id is not reliably reused). Consider sweeping `thumbs/` for ids not in `files` at scan start. Found 2026-10-11 (Sprint 1 §6).
 - [ ] **Schema pragmatism:** start denormalized, refactor after Sprints if needed
-   [x] Fix `schema_version` numeric ordering bug in migrations (TEXT vs integer ordering)
+- [x] Fix `schema_version` numeric ordering bug in migrations (TEXT vs integer ordering)
 
 ---
 
