@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import signal
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pytest
@@ -94,6 +97,46 @@ def test_scan_with_corrupted_image(tmp_path: Path) -> None:
         assert statuses["bad.jpg"] == "load_failed"
     finally:
         conn.close()
+
+
+def _status_reasons_by_name(scan_root: Path) -> dict[str, str | None]:
+    conn = open_project_connection(scan_root)
+    try:
+        rows = conn.execute("SELECT file_path, status_reason FROM files").fetchall()
+        return {Path(r["file_path"]).name: r["status_reason"] for r in rows}
+    finally:
+        conn.close()
+
+
+def test_scan_stores_load_failure_reason(tmp_path: Path) -> None:
+    """load_failed rows get a reason code; ok and MIME-rejected rows stay NULL."""
+    scan_root = tmp_path / "photos"
+    scan_root.mkdir()
+    Image.new("RGB", (4, 4)).save(scan_root / "good.jpg", "JPEG")
+    Image.new("RGB", (16, 16)).save(scan_root / "wide.png", "PNG")
+    (scan_root / "notes.txt").write_text("not a photo")
+    config = Config.model_validate({"loader": {"max_image_dimension": 8}})
+
+    summary = asyncio.run(run_scan(scan_root, config))
+
+    assert summary.load_failure_reasons == {"dimensions_too_large": 1}
+    reasons = _status_reasons_by_name(scan_root)
+    assert reasons == {"good.jpg": None, "wide.png": "dimensions_too_large", "notes.txt": None}
+
+
+def test_rescan_clears_reason_when_file_recovers(tmp_path: Path) -> None:
+    scan_root = tmp_path / "photos"
+    scan_root.mkdir()
+    photo = scan_root / "a.jpg"
+    photo.write_bytes(b"\xff\xd8\xff\xe0JUNK")
+    config = Config()
+
+    asyncio.run(run_scan(scan_root, config))
+    assert _status_reasons_by_name(scan_root)["a.jpg"] is not None
+
+    Image.new("RGB", (16, 16)).save(photo, "JPEG")
+    asyncio.run(run_scan(scan_root, config))
+    assert _status_reasons_by_name(scan_root)["a.jpg"] is None
 
 
 def test_scan_empty_directory(tmp_path: Path) -> None:
@@ -262,6 +305,47 @@ def _file_ids_by_name(scan_root: Path) -> dict[str, int]:
         conn.close()
 
 
+def _make_ordering_folder(scan_root: Path) -> None:
+    """First file (sorted) is slow to process, so it finishes after the others."""
+    scan_root.mkdir()
+    _structured_image(size=3000).save(scan_root / "a_big.jpg", "JPEG")
+    for i in range(6):
+        Image.new("RGB", (16, 16), color=(i * 40, 0, 0)).save(
+            scan_root / f"b_small_{i}.png", "PNG"
+        )
+
+
+def test_file_ids_follow_discovery_order_regardless_of_workers(tmp_path: Path) -> None:
+    """Same folder → same (id, name) and thumbnail names with 1 or 4 workers."""
+    results: list[dict[str, int]] = []
+    thumb_names: list[list[str]] = []
+    for workers in (1, 4):
+        scan_root = tmp_path / f"photos_{workers}"
+        _make_ordering_folder(scan_root)
+        config = Config.model_validate({"scanner": {"max_workers": workers}})
+        asyncio.run(run_scan(scan_root, config))
+        results.append(_file_ids_by_name(scan_root))
+        thumbs = scan_root / "phaicull" / "thumbs"
+        thumb_names.append(sorted(p.name for p in thumbs.iterdir()))
+
+    assert results[0] == results[1]
+    assert thumb_names[0] == thumb_names[1]
+    names_by_id = [name for name, _ in sorted(results[1].items(), key=lambda kv: kv[1])]
+    assert names_by_id == sorted(names_by_id)
+
+
+def test_rescan_keeps_file_ids(tmp_path: Path) -> None:
+    scan_root = tmp_path / "photos"
+    _make_ordering_folder(scan_root)
+    config = Config.model_validate({"scanner": {"max_workers": 4}})
+
+    asyncio.run(run_scan(scan_root, config))
+    first = _file_ids_by_name(scan_root)
+    asyncio.run(run_scan(scan_root, config))
+
+    assert _file_ids_by_name(scan_root) == first
+
+
 def test_scan_writes_thumbnails_named_by_file_id(tmp_path: Path) -> None:
     """Each ok file gets phaicull/thumbs/thumb_<id>.jpg (≤300px); broken files get none."""
     scan_root = tmp_path / "photos"
@@ -335,3 +419,111 @@ def test_scan_ignores_own_phaicull_db(tmp_path: Path) -> None:
         assert all("/phaicull/" not in r["file_path"] for r in rows)
     finally:
         conn.close()
+
+
+def _interrupt_on_write(
+    monkeypatch: pytest.MonkeyPatch, nth: int, interrupt: Callable[[], None]
+) -> None:
+    """Write the nth result to the DB, then interrupt (before its batch commits)."""
+    real_write = pipeline._write_result_to_db
+    calls = 0
+
+    def write(*args: Any, **kwargs: Any) -> None:
+        nonlocal calls
+        real_write(*args, **kwargs)
+        calls += 1
+        if calls == nth:
+            interrupt()
+
+    monkeypatch.setattr(pipeline, "BATCH_COMMIT_SIZE", 2)
+    monkeypatch.setattr(pipeline, "_write_result_to_db", write)
+
+
+def _make_duplicate_folder(scan_root: Path, count: int = 6) -> None:
+    scan_root.mkdir()
+    for i in range(count):
+        _structured_image(size=64).save(scan_root / f"img_{i}.png", "PNG")
+
+
+def _thumb_names(scan_root: Path) -> list[str]:
+    return sorted(p.name for p in (scan_root / "phaicull" / "thumbs").iterdir())
+
+
+def _assert_interrupted_state(scan_root: Path) -> None:
+    """Two batches of 2 committed, 5th write rolled back, no grouping, staging gone."""
+    groups = _group_ids_by_name(scan_root)
+    assert sorted(groups) == ["img_0.png", "img_1.png", "img_2.png", "img_3.png"]
+    assert all(g is None for g in groups.values())
+    conn = open_project_connection(scan_root)
+    try:
+        assert conn.execute("SELECT COUNT(*) FROM groups").fetchone()[0] == 0
+    finally:
+        conn.close()
+    # The rolled-back 5th row must not leave thumb_5.jpg behind.
+    ids = _file_ids_by_name(scan_root)
+    assert _thumb_names(scan_root) == sorted(f"thumb_{i}.jpg" for i in ids.values())
+
+
+def _raise_keyboard_interrupt() -> None:
+    raise KeyboardInterrupt
+
+
+def test_keyboard_interrupt_rolls_back_partial_batch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    scan_root = tmp_path / "photos"
+    _make_duplicate_folder(scan_root)
+    _interrupt_on_write(monkeypatch, 5, _raise_keyboard_interrupt)
+
+    with pytest.raises(KeyboardInterrupt):
+        asyncio.run(run_scan(scan_root, Config()))
+
+    _assert_interrupted_state(scan_root)
+
+
+def test_sigint_cancels_scan_and_raises_keyboard_interrupt(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Real Ctrl+C path: asyncio.run cancels the task, then raises KeyboardInterrupt."""
+    scan_root = tmp_path / "photos"
+    _make_duplicate_folder(scan_root)
+    _interrupt_on_write(monkeypatch, 5, lambda: signal.raise_signal(signal.SIGINT))
+
+    with pytest.raises(KeyboardInterrupt):
+        asyncio.run(run_scan(scan_root, Config()))
+
+    _assert_interrupted_state(scan_root)
+
+
+def test_rescan_after_interrupt_completes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    scan_root = tmp_path / "photos"
+    _make_duplicate_folder(scan_root)
+    _interrupt_on_write(monkeypatch, 5, _raise_keyboard_interrupt)
+    with pytest.raises(KeyboardInterrupt):
+        asyncio.run(run_scan(scan_root, Config()))
+    monkeypatch.undo()
+
+    summary = asyncio.run(run_scan(scan_root, Config()))
+
+    assert summary.processed == 6
+    assert summary.duplicate_groups == 1
+    ids = _file_ids_by_name(scan_root)
+    assert _thumb_names(scan_root) == sorted(f"thumb_{i}.jpg" for i in ids.values())
+
+
+def test_interrupt_keeps_refreshed_thumbnail_of_existing_row(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Rolled-back rows that existed before keep their id, so their thumbnail stays."""
+    scan_root = tmp_path / "photos"
+    _make_duplicate_folder(scan_root)
+    asyncio.run(run_scan(scan_root, Config()))
+    before = _thumb_names(scan_root)
+
+    _interrupt_on_write(monkeypatch, 5, _raise_keyboard_interrupt)
+    with pytest.raises(KeyboardInterrupt):
+        asyncio.run(run_scan(scan_root, Config()))
+
+    assert _thumb_names(scan_root) == before

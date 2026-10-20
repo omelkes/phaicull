@@ -9,7 +9,7 @@ This document defines the **machine-readable JSON output** for
 ### Top‑Level Object
 
 The CLI emits a single JSON object when run in JSON mode (for example,
-`phaicull scan --folder <path> --json` in a future task):
+`phaicull scan <folder> --json` in a future task):
 
 - `json_schema_version` (integer): current JSON contract version. Starts at `1`.
 - `project_root` (string): absolute path to the scanned folder.
@@ -45,8 +45,12 @@ Each entry in `files` has the following shape:
 - `path` (string): path to the file. Typically project‑relative, but UIs must
   be prepared for absolute paths.
 - `status` (string, optional): high‑level status, aligned with the `status`
-  column in the `files` table (e.g., `"ok"`, `"skipped_invalid_mime"`,
-  `"error_reading"`).
+  column in the `files` table: `"ok"`, `"skipped_invalid_mime"`, or
+  `"load_failed"`.
+- `status_reason` (string or null, optional): why a `load_failed` file was
+  skipped, from `files.status_reason`: `"unreadable"`, `"zero_byte"`,
+  `"too_large"`, `"cannot_open"`, `"dimensions_too_large"`, or
+  `"decode_failed"`. Null for every other status. New codes may be added.
 - `group_id` (integer or null, optional): foreign key to a row in `groups`
   (visual near-duplicate cluster in Sprint 1; activity/scene clusters later).
   Membership is stable; integer ids are not. See [`grouping.md`](grouping.md).

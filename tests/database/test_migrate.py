@@ -1,12 +1,15 @@
 """Tests for schema migration runner."""
 
+import shutil
 import sqlite3
 from pathlib import Path
 
 import pytest
 
 from core.database.migrate import (
+    MIGRATIONS_DIR,
     PhaicullDatabaseError,
+    _run_migrations,
     get_applied_migrations,
     get_schema_version,
     migrate,
@@ -22,7 +25,7 @@ def test_migrate_creates_db_and_schema_version(tmp_path: Path) -> None:
     version = migrate(db_path)
 
     assert db_path.exists()
-    assert version == "003"
+    assert version == "004"
 
 
 def test_migrate_idempotent(tmp_path: Path) -> None:
@@ -31,7 +34,7 @@ def test_migrate_idempotent(tmp_path: Path) -> None:
     v1 = migrate(db_path)
     v2 = migrate(db_path)
 
-    assert v1 == v2 == "003"
+    assert v1 == v2 == "004"
 
 
 def test_get_schema_version_returns_none_for_missing_db(tmp_path: Path) -> None:
@@ -44,7 +47,7 @@ def test_get_schema_version_returns_version_after_migrate(tmp_path: Path) -> Non
     """get_schema_version returns current version after migrate."""
     db_path = tmp_path / "test.db"
     migrate(db_path)
-    assert get_schema_version(db_path) == "003"
+    assert get_schema_version(db_path) == "004"
 
 
 def test_schema_version_table_has_correct_structure(tmp_path: Path) -> None:
@@ -160,6 +163,28 @@ def test_migrate_creates_project_tables(tmp_path: Path) -> None:
     conn.close()
 
     assert tables == ["files", "groups", "metrics"]
+
+
+def test_migrate_004_adds_nullable_status_reason_to_existing_db(tmp_path: Path) -> None:
+    """A schema-003 DB with rows upgrades in place; old rows read status_reason NULL."""
+    old_dir = tmp_path / "migrations_003"
+    old_dir.mkdir()
+    for sql in sorted(MIGRATIONS_DIR.glob("*.sql"))[:3]:
+        shutil.copy(sql, old_dir / sql.name)
+    db_path = tmp_path / "project.db"
+    assert _run_migrations(db_path, old_dir) == "003"
+
+    conn = sqlite3.connect(str(db_path))
+    conn.execute("INSERT INTO files (file_path, status) VALUES ('/p/a.jpg', 'load_failed')")
+    conn.commit()
+    conn.close()
+
+    assert migrate(db_path) == "004"
+
+    conn = sqlite3.connect(str(db_path))
+    row = conn.execute("SELECT status, status_reason FROM files").fetchone()
+    conn.close()
+    assert row == ("load_failed", None)
 
 
 def test_migrate_registry_creates_db_and_projects(tmp_path: Path) -> None:

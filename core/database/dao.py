@@ -8,6 +8,7 @@ All SQL lives in this module (per AGENTS.md). Two databases:
 from __future__ import annotations
 
 import sqlite3
+from collections.abc import Iterable
 from pathlib import Path
 from typing import NamedTuple
 
@@ -72,26 +73,39 @@ def insert_file(
     content_hash: str | None = None,
     status: str | None = None,
     group_id: int | None = None,
+    status_reason: str | None = None,
 ) -> int:
     """Insert a file row. Returns file id. Replaces on path conflict (upsert).
 
     On conflict, group_id is only overwritten when a non-NULL value is passed —
     rescans (which pass group_id=None) preserve existing grouping results.
+    status_reason is always overwritten, so a file that loads again gets NULL.
     """
     conn.execute(
         """
-        INSERT INTO files (file_path, content_hash, status, group_id)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO files (file_path, content_hash, status, group_id, status_reason)
+        VALUES (?, ?, ?, ?, ?)
         ON CONFLICT(file_path) DO UPDATE SET
             content_hash=excluded.content_hash,
             status=excluded.status,
+            status_reason=excluded.status_reason,
             group_id=COALESCE(excluded.group_id, files.group_id),
             updated_at=datetime('now')
         """,
-        (file_path, content_hash, status, group_id),
+        (file_path, content_hash, status, group_id, status_reason),
     )
     row = conn.execute("SELECT id FROM files WHERE file_path = ?", (file_path,)).fetchone()
     return row[0] if row else 0
+
+
+def existing_file_ids(conn: sqlite3.Connection, file_ids: Iterable[int]) -> set[int]:
+    """Return the subset of file_ids that have a row in files."""
+    ids = list(file_ids)
+    if not ids:
+        return set()
+    placeholders = ",".join("?" * len(ids))
+    rows = conn.execute(f"SELECT id FROM files WHERE id IN ({placeholders})", ids)
+    return {row[0] for row in rows}
 
 
 # --- Project DB: metrics ---

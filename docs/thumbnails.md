@@ -72,7 +72,12 @@ Brain assigns it on insert), so it writes the thumbnail under a random name in
 after writing the row. `.staging/` is cleared at the start and end of each scan.
 UIs should ignore it.
 
-Known limit: thumbnails are renamed before the DB batch commits. If a scan is
-killed in between, a `thumb_<id>.jpg` may exist for an id that was rolled back;
-the next scan overwrites or removes it.
+Thumbnails are renamed before the DB batch commits. On Ctrl+C the batch is
+rolled back and thumbnails placed for rows that no longer exist are deleted.
+
+Known limit: if the process is killed hard (SIGKILL, power loss) between rename
+and commit, a `thumb_<id>.jpg` may remain for an id with no row. It is not
+reused reliably, because the upsert in `insert_file` advances the AUTOINCREMENT
+counter, so the next scan can give that file a different id. UIs should only
+show thumbnails for ids present in `files`.
 

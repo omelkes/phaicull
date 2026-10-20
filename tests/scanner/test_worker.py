@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import signal
 from pathlib import Path
 
 import pytest
 from PIL import Image
 
 from core.analyzers import get_sprint1_analyzers
-from core.scanner.worker import FileResult, process_file
+from core.scanner.worker import FileResult, ignore_sigint, process_file
 
 MAX_SIZE = 10 * 1_048_576
 MAX_DIM = 5000
@@ -109,6 +110,7 @@ def test_process_corrupted_image(tmp_path: Path) -> None:
     )
 
     assert result.status == "load_failed"
+    assert result.status_reason is not None
     assert result.metrics == []
 
 
@@ -140,6 +142,7 @@ def test_process_zero_byte(tmp_path: Path) -> None:
     )
 
     assert result.status == "load_failed"
+    assert result.status_reason == "zero_byte"
 
 
 def test_file_result_has_absolute_path(tmp_path: Path) -> None:
@@ -234,3 +237,13 @@ def test_process_with_no_analyzers(tmp_path: Path) -> None:
 
     assert result.status == "ok"
     assert result.metrics == []
+
+
+def test_ignore_sigint_sets_sig_ign() -> None:
+    """Pool initializer makes workers ignore Ctrl+C (the Brain handles it)."""
+    previous = signal.getsignal(signal.SIGINT)
+    try:
+        ignore_sigint()
+        assert signal.getsignal(signal.SIGINT) is signal.SIG_IGN
+    finally:
+        signal.signal(signal.SIGINT, previous)
