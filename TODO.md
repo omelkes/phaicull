@@ -116,6 +116,8 @@ Plan for this section: [`docs/plan/sprint1-cli-resilience.md`](docs/plan/sprint1
 
 ### 7. Verification
 
+Plan for this section: [`docs/plan/sprint1-verification.md`](docs/plan/sprint1-verification.md).
+
 - [ ] **Sprint 1 success check:**
   - Scan 1k photos < 5 minutes.
   - Blur ranking correctly surfaces worst 10 images in the Benchmark Set.
