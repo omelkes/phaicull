@@ -20,6 +20,7 @@ from pydantic import BaseModel, Field
 from core.analyzers import get_sprint1_analyzers
 from core.config import Config
 from core.database.dao import insert_file, insert_metric, open_project_connection
+from core.grouping import regroup
 from core.scanner.walker import discover_files
 from core.scanner.worker import FileResult, process_file
 
@@ -39,6 +40,9 @@ class ScanSummary(BaseModel):
     analyzer_errors: int = 0
     skipped_mime: int = Field(
         default=0, description="Files rejected by the MIME gate during discovery."
+    )
+    duplicate_groups: int = Field(
+        default=0, description="Near-duplicate groups (two or more files) after grouping."
     )
 
 
@@ -82,6 +86,8 @@ async def run_scan(scan_root: Path, config: Config) -> ScanSummary:
 
         if files:
             await _process_files(conn, files, config, summary)
+
+        _run_grouping(conn, config, summary)
     finally:
         conn.close()
 
@@ -136,6 +142,16 @@ async def _process_files(
 
         if pending > 0:
             conn.commit()
+
+
+def _run_grouping(conn: sqlite3.Connection, config: Config, summary: ScanSummary) -> None:
+    """Regroup near-duplicates. Metrics are already committed; a failure here keeps them."""
+    try:
+        result = regroup(conn, hamming_max=config.phash_hamming_max)
+    except Exception:
+        logger.exception("Grouping failed; scan metrics are kept")
+        return
+    summary.duplicate_groups = result.duplicate_groups
 
 
 def _write_mime_rejections(conn: sqlite3.Connection, rejected: list[Path]) -> None:

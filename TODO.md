@@ -65,11 +65,11 @@
 - [x] **Blur Analyzer:** Laplacian Variance. Stable across resolutions (downscaled to 1024px working size), log-normalized to 0–1 (lower = blurrier). Calibration constants `_VAR_LO=5, _VAR_HI=2000` are provisional — tune against benchmark set in Verification.
 - [x] **Exposure Analyzer:** Mean brightness, linearly normalized to 0–1 (0 = black, 1 = white); thresholds.brightness_min/max apply directly.
 - [x] **Contrast Analyzer:** RMS contrast as separate `contrast_score` metric (one analyzer = one metric per AGENTS.md; split out of the original Exposure item). Grayscale std, `linear_norm(std, 0, 127.5)` — 0 = flat, 1 = theoretical uint8 max.
-- [x] **Duplicates Analyzer:** Perceptual Hashing (pHash) to find near-matches. DCT-based via OpenCV (no new dependency); AC-median convention (brightness-shift robust); 64-bit hash as 16-char hex in `value_text`. Hamming-distance grouping is the separate Grouping task.
+- [x] **Duplicates Analyzer:** Perceptual Hashing (pHash) to find near-matches. DCT-based via OpenCV (no new dependency); AC-median convention (brightness-shift robust); 64-bit hash as 16-char hex in `value_text`. Hamming-distance grouping is [`docs/plan/sprint1-grouping.md`](docs/plan/sprint1-grouping.md).
 - [x] **Analyzer tests:** Each analyzer (Blur, Exposure, Contrast, Duplicates) has 4-category tests: happy path, corrupted (truncated/zero-byte), invalid type (non-image), edge cases (1x1 px, extreme aspect ratio). Corrupted/invalid files are gated by the loader — verified end-to-end through the Brawn worker in each analyzer's test file.
 
 ### 5. Post-Processing (Grouping & Caching)
-- [ ] **Grouping Logic:** Algorithm to group photos by time-window (e.g., "bursts" within 5 seconds). Uses EXIF time if available, file mtime as fallback.
+- [x] **Grouping Logic:** Visual near-duplicate clusters via pHash Hamming (not time), run at the end of every scan. Activity/scene groups wait for embeddings. Contract: [`docs/grouping.md`](docs/grouping.md); DEC-009; plan: [`docs/plan/sprint1-grouping.md`](docs/plan/sprint1-grouping.md).
 - [ ] **Thumbnailer:** Generate and cache 300px thumbnails locally.
 
 ### 6. CLI Integration & Resilience
@@ -87,8 +87,8 @@
 
 ## 🧠 Sprint 2: The Smart Perception (AI & Aesthetic Scoring)
 - [ ] **Face Analysis:** Integrate MediaPipe to detect faces, count them, and check for "Eyes Open" (EAR).
-- [ ] **Aesthetic Backbone:** Integrate **CLIP** (via ONNX) to extract image embeddings.
-- [ ] **The "Best of" Logic:** Logic to auto-flag the 1-2 "Keepers" within a time-based group.
+- [ ] **Aesthetic Backbone:** Integrate **CLIP** (via ONNX) to extract image embeddings. This is also the signal for activity/scene grouping (karts vs butterfly); see [`docs/plan/sprint1-grouping.md`](docs/plan/sprint1-grouping.md).
+- [ ] **The "Best of" Logic:** Logic to auto-flag the 1-2 "Keepers" within a visual / activity group.
 - [ ] **CLI Finalization:** `culler.py scan --report` (Output a JSON summary of "Keep vs Junk").
 
 
@@ -143,7 +143,7 @@ Try and decide the best result
 - [x] **No linter/type-checker/CI:** added `ruff` + `mypy --strict` (dev deps, config in pyproject.toml) and `.github/workflows/ci.yml` (ruff + mypy + pytest). Both pass clean on `core/`.
 
 ## Ongoing
-- [ ] Keep TODO aligned with actual code structure
+- [ ] Keep TODO aligned with actual code structure. Detailed plans live in [`docs/plan/`](docs/plan/README.md); TODO stays a checklist.
 - [ ] Move completed tasks into CHANGELOG or release notes
 - [ ] **Schema pragmatism:** start denormalized, refactor after Sprints if needed
  - [x] Fix `schema_version` numeric ordering bug in migrations (TEXT vs integer ordering)

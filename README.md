@@ -10,7 +10,7 @@ Fast, offline-first photo culling: find blurry, dark, duplicate, and low-quality
 Parents and enthusiasts with a "camera roll avalanche" need a tool that:
 - **Works offline** by default (Privacy is non-negotiable for family photos).
 - **Scans fast** and provides actionable sorting/filtering.
-- **Identifies the "Best"** photo from a burst or series automatically.
+- **Identifies the "Best"** photo from a set of near-identical shots automatically.
 - **Stays open source** and extensible for the community.
 
 ## 🎯 The Vision
@@ -30,7 +30,8 @@ Phaicull uses a multi-layered approach to analyze your library:
 - **Package manager:** [uv](https://docs.astral.sh/uv/) (recommended)
 - **Install:** `uv sync` — creates a virtual environment and installs dependencies from `pyproject.toml`
 - **Run tests:** `uv run pytest`
-- **CLI:** `uv run phaicull --help` or `uv run phaicull scan <folder>`
+- **CLI:** `uv run phaicull --help` or `uv run phaicull scan <folder>`. Each scan also groups
+  visual near-duplicates (pHash, not time); see [`docs/grouping.md`](docs/grouping.md).
 
 **Supported image formats:** JPEG, PNG, HEIC/HEIF (iPhone), GIF, WebP. Files are
 validated by magic bytes, not extension; anything else is recorded as skipped.
@@ -52,7 +53,7 @@ validated by magic bytes, not extension; anything else is recorded as skipped.
   
 
 ## 🚀 Roadmap
-- [ ] **Phase 1 (MVP - Foundation):** Robust CLI, SQLite persistence, technical metrics (blur/brightness), and pHash duplicate grouping.
+- [ ] **Phase 1 (MVP - Foundation):** Robust CLI, SQLite persistence, technical metrics (blur/brightness), and pHash near-duplicate grouping (visual, not time-based).
 - [ ] **Phase 2 (AI Core):** Integration of CLIP embeddings and the first "Aesthetic Scorer" model. Local fine-tuning for better user experience. 
 - [ ] **Phase 3 (Native UI):** Initial release of macOS (SwiftUI) and Windows (.NET) grid views.
 - [ ] **Phase 4 (Subject Intel):** Face mesh analysis for eye-closure and smile detection.

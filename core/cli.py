@@ -82,6 +82,7 @@ def scan(
     console.print("\n[bold green]Scan complete[/bold green]")
     console.print(f"  Discovered: {summary.total_discovered}")
     console.print(f"  Processed:  {summary.processed}")
+    console.print(f"  Near-duplicate groups: {summary.duplicate_groups}")
     if summary.skipped_mime:
         console.print(f"  [yellow]Skipped (not an image):[/yellow] {summary.skipped_mime}")
     if summary.load_failed:

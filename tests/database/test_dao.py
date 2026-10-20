@@ -4,15 +4,21 @@ from pathlib import Path
 
 from core.database.dao import (
     add_project,
+    count_multi_file_groups,
     ensure_project_db,
     ensure_registry_db,
     get_project_db_path,
     get_registry_db_path,
     insert_file,
+    insert_group,
     insert_metric,
+    list_files_for_grouping,
+    list_group_memberships,
     list_projects,
     open_project_connection,
     open_registry_connection,
+    reset_groups,
+    set_file_group,
 )
 
 
@@ -226,3 +232,134 @@ def test_insert_metric_after_insert_file(tmp_path: Path) -> None:
         assert tuple(rows[2]) == ("phash", None, "deadbeef")
     finally:
         conn.close()
+
+
+# --- groups ---
+
+
+def test_insert_group_returns_id(tmp_path: Path) -> None:
+    """insert_group creates a groups row and returns its id."""
+    conn = open_project_connection(tmp_path / "photos")
+    try:
+        group_id = insert_group(conn)
+        conn.commit()
+        row = conn.execute("SELECT id FROM groups WHERE id = ?", (group_id,)).fetchone()
+        assert row is not None
+        assert row["id"] == group_id
+    finally:
+        conn.close()
+
+
+def test_set_file_group_assigns_and_clears(tmp_path: Path) -> None:
+    """set_file_group writes group_id and can clear it with None."""
+    conn = open_project_connection(tmp_path / "photos")
+    try:
+        fid = insert_file(conn, "/photos/a.jpg", status="ok")
+        group_id = insert_group(conn)
+        set_file_group(conn, fid, group_id)
+        conn.commit()
+        row = conn.execute("SELECT group_id FROM files WHERE id = ?", (fid,)).fetchone()
+        assert row["group_id"] == group_id
+
+        set_file_group(conn, fid, None)
+        conn.commit()
+        row = conn.execute("SELECT group_id FROM files WHERE id = ?", (fid,)).fetchone()
+        assert row["group_id"] is None
+    finally:
+        conn.close()
+
+
+def test_list_files_for_grouping_ok_only(tmp_path: Path) -> None:
+    """Only status=ok files are listed; phash is NULL when the metric is missing."""
+    conn = open_project_connection(tmp_path / "photos")
+    try:
+        ok = insert_file(conn, "/photos/ok.jpg", status="ok")
+        missing = insert_file(conn, "/photos/nophash.jpg", status="ok")
+        insert_file(conn, "/photos/bad.jpg", status="load_failed")
+        insert_file(conn, "/photos/skip.jpg", status="skipped_invalid_mime")
+        insert_metric(conn, ok, "phash", value_text="0123456789abcdef")
+        conn.commit()
+
+        rows = list_files_for_grouping(conn)
+        by_path = {row.file_path: row for row in rows}
+        assert set(by_path) == {"/photos/ok.jpg", "/photos/nophash.jpg"}
+        assert by_path["/photos/ok.jpg"].file_id == ok
+        assert by_path["/photos/ok.jpg"].phash == "0123456789abcdef"
+        assert by_path["/photos/nophash.jpg"].file_id == missing
+        assert by_path["/photos/nophash.jpg"].phash is None
+        assert [row.file_id for row in rows] == sorted(row.file_id for row in rows)
+    finally:
+        conn.close()
+
+
+def test_list_group_memberships_includes_any_status(tmp_path: Path) -> None:
+    """Memberships cover every grouped file, including non-ok ones; ungrouped are absent."""
+    conn = open_project_connection(tmp_path / "photos")
+    try:
+        ok = insert_file(conn, "/photos/ok.jpg", status="ok")
+        failed = insert_file(conn, "/photos/failed.jpg", status="load_failed")
+        insert_file(conn, "/photos/loose.jpg", status="ok")
+        group_id = insert_group(conn)
+        set_file_group(conn, ok, group_id)
+        set_file_group(conn, failed, group_id)
+        conn.commit()
+        assert list_group_memberships(conn) == {ok: group_id, failed: group_id}
+    finally:
+        conn.close()
+
+
+def test_reset_groups_nulls_then_deletes(tmp_path: Path) -> None:
+    """reset_groups clears file membership and removes groups rows; files stay."""
+    conn = open_project_connection(tmp_path / "photos")
+    try:
+        fid = insert_file(conn, "/photos/a.jpg", status="ok")
+        group_id = insert_group(conn)
+        set_file_group(conn, fid, group_id)
+        conn.commit()
+
+        reset_groups(conn)
+        conn.commit()
+
+        file_row = conn.execute("SELECT group_id FROM files WHERE id = ?", (fid,)).fetchone()
+        group_count = conn.execute("SELECT COUNT(*) FROM groups").fetchone()
+        assert file_row["group_id"] is None
+        assert group_count is not None
+        assert group_count[0] == 0
+    finally:
+        conn.close()
+
+
+def test_count_multi_file_groups(tmp_path: Path) -> None:
+    """Only groups with two or more files are counted."""
+    conn = open_project_connection(tmp_path / "photos")
+    try:
+        a = insert_file(conn, "/photos/a.jpg", status="ok")
+        b = insert_file(conn, "/photos/b.jpg", status="ok")
+        c = insert_file(conn, "/photos/c.jpg", status="ok")
+        pair = insert_group(conn)
+        solo = insert_group(conn)
+        set_file_group(conn, a, pair)
+        set_file_group(conn, b, pair)
+        set_file_group(conn, c, solo)
+        conn.commit()
+        assert count_multi_file_groups(conn) == 1
+    finally:
+        conn.close()
+
+
+def test_group_dao_does_not_commit(tmp_path: Path) -> None:
+    """Group DAO methods leave the transaction to the caller."""
+    project_root = tmp_path / "photos"
+    conn = open_project_connection(project_root)
+    try:
+        insert_group(conn)
+    finally:
+        conn.close()
+
+    conn2 = open_project_connection(project_root)
+    try:
+        count = conn2.execute("SELECT COUNT(*) FROM groups").fetchone()
+        assert count is not None
+        assert count[0] == 0
+    finally:
+        conn2.close()

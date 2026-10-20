@@ -147,6 +147,24 @@ def test_burst_window_out_of_range() -> None:
         Config(burst_window_seconds=400.0)
 
 
+def test_phash_hamming_max_default_and_range() -> None:
+    """phash_hamming_max defaults to 6 and must be 0–64."""
+    assert Config().phash_hamming_max == 6
+    assert Config(phash_hamming_max=0).phash_hamming_max == 0
+    assert Config(phash_hamming_max=64).phash_hamming_max == 64
+    with pytest.raises(ValidationError):
+        Config(phash_hamming_max=-1)
+    with pytest.raises(ValidationError):
+        Config(phash_hamming_max=65)
+
+
+def test_phash_hamming_max_from_toml(tmp_path: Path) -> None:
+    """phash_hamming_max loads from a top-level TOML key."""
+    toml = tmp_path / "phaicull.toml"
+    toml.write_text("phash_hamming_max = 4\n", encoding="utf-8")
+    assert load_config(toml).phash_hamming_max == 4
+
+
 def test_invalid_toml_raises(tmp_path: Path) -> None:
     """Invalid TOML syntax raises."""
     import tomllib

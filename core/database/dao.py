@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import sqlite3
 from pathlib import Path
+from typing import NamedTuple
 
 from core.database import schema
 from core.database.connection import enable_wal
@@ -115,6 +116,93 @@ def insert_metric(
         """,
         (file_id, metric_name, value_real, value_text),
     )
+
+
+# --- Project DB: groups ---
+
+
+class GroupingCandidate(NamedTuple):
+    """One status=ok file plus its phash, if any. Used by the grouping pass."""
+
+    file_id: int
+    file_path: str
+    phash: str | None
+
+
+def insert_group(conn: sqlite3.Connection) -> int:
+    """Insert an empty groups row. Returns its id. Does not commit."""
+    cursor = conn.execute("INSERT INTO groups DEFAULT VALUES")
+    group_id = cursor.lastrowid
+    if group_id is None:
+        raise RuntimeError("INSERT INTO groups did not return an id")
+    return int(group_id)
+
+
+def set_file_group(conn: sqlite3.Connection, file_id: int, group_id: int | None) -> None:
+    """Set files.group_id for one file. Does not commit.
+
+    Pass group_id=None to clear membership. No-op if file_id does not exist.
+    """
+    conn.execute(
+        "UPDATE files SET group_id = ?, updated_at = datetime('now') WHERE id = ?",
+        (group_id, file_id),
+    )
+
+
+def list_files_for_grouping(conn: sqlite3.Connection) -> list[GroupingCandidate]:
+    """Return status=ok files with their phash metric (NULL if missing).
+
+    Ordered by file id so clustering is deterministic. Does not commit.
+    """
+    cursor = conn.execute(
+        """
+        SELECT f.id, f.file_path, m.value_text AS phash
+        FROM files AS f
+        LEFT JOIN metrics AS m
+            ON m.file_id = f.id AND m.metric_name = 'phash'
+        WHERE f.status = 'ok'
+        ORDER BY f.id
+        """
+    )
+    return [
+        GroupingCandidate(
+            file_id=int(row["id"]),
+            file_path=str(row["file_path"]),
+            phash=row["phash"] if row["phash"] is None else str(row["phash"]),
+        )
+        for row in cursor.fetchall()
+    ]
+
+
+def list_group_memberships(conn: sqlite3.Connection) -> dict[int, int]:
+    """Return file_id -> group_id for every file with a group, any status. Does not commit."""
+    cursor = conn.execute("SELECT id, group_id FROM files WHERE group_id IS NOT NULL")
+    return {int(row[0]): int(row[1]) for row in cursor.fetchall()}
+
+
+def reset_groups(conn: sqlite3.Connection) -> None:
+    """Clear every group_id, then delete groups rows. Does not commit.
+
+    group_id is nulled first so this stays valid if foreign keys are enabled later.
+    """
+    conn.execute("UPDATE files SET group_id = NULL")
+    conn.execute("DELETE FROM groups")
+
+
+def count_multi_file_groups(conn: sqlite3.Connection) -> int:
+    """Count groups that contain more than one file. Does not commit."""
+    row = conn.execute(
+        """
+        SELECT COUNT(*) FROM (
+            SELECT group_id
+            FROM files
+            WHERE group_id IS NOT NULL
+            GROUP BY group_id
+            HAVING COUNT(*) > 1
+        )
+        """
+    ).fetchone()
+    return int(row[0]) if row else 0
 
 
 # --- Registry DB: projects ---

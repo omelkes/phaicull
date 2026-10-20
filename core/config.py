@@ -1,7 +1,7 @@
 """Configuration for Phaicull.
 
 Loads from TOML (via stdlib tomllib). Handles: thresholds (blur, brightness),
-burst window, and enable/disable heavy features.
+near-duplicate grouping threshold, and enable/disable heavy features.
 """
 
 from __future__ import annotations
@@ -94,7 +94,14 @@ class Config(BaseModel):
         default=5.0,
         ge=0.1,
         le=300.0,
-        description="Group photos within this many seconds as bursts.",
+        description="Unused by grouping (grouping is visual, not time-based); kept for "
+        "config compatibility.",
+    )
+    phash_hamming_max: int = Field(
+        default=6,
+        ge=0,
+        le=64,
+        description="Max pHash Hamming distance for two photos to count as near-duplicates.",
     )
     heavy_features_enabled: bool = Field(
         default=False,

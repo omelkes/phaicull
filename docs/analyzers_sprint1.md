@@ -52,7 +52,8 @@ Per `AGENTS.md`, each analyzer:
     Computation: grayscale → 32x32 → DCT → top-left 8x8 block → bits =
     coefficient > median of AC coefficients (DC excluded for brightness
     robustness). Near-duplicates have small Hamming distance (typically ≤ 6);
-    unrelated images ~32.
+    unrelated images ~32. Hamming clustering (not time) is described in
+    [`grouping.md`](grouping.md).
 
 ### Usage Notes
 
