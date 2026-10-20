@@ -262,6 +262,47 @@ def _file_ids_by_name(scan_root: Path) -> dict[str, int]:
         conn.close()
 
 
+def _make_ordering_folder(scan_root: Path) -> None:
+    """First file (sorted) is slow to process, so it finishes after the others."""
+    scan_root.mkdir()
+    _structured_image(size=3000).save(scan_root / "a_big.jpg", "JPEG")
+    for i in range(6):
+        Image.new("RGB", (16, 16), color=(i * 40, 0, 0)).save(
+            scan_root / f"b_small_{i}.png", "PNG"
+        )
+
+
+def test_file_ids_follow_discovery_order_regardless_of_workers(tmp_path: Path) -> None:
+    """Same folder → same (id, name) and thumbnail names with 1 or 4 workers."""
+    results: list[dict[str, int]] = []
+    thumb_names: list[list[str]] = []
+    for workers in (1, 4):
+        scan_root = tmp_path / f"photos_{workers}"
+        _make_ordering_folder(scan_root)
+        config = Config.model_validate({"scanner": {"max_workers": workers}})
+        asyncio.run(run_scan(scan_root, config))
+        results.append(_file_ids_by_name(scan_root))
+        thumbs = scan_root / "phaicull" / "thumbs"
+        thumb_names.append(sorted(p.name for p in thumbs.iterdir()))
+
+    assert results[0] == results[1]
+    assert thumb_names[0] == thumb_names[1]
+    names_by_id = [name for name, _ in sorted(results[1].items(), key=lambda kv: kv[1])]
+    assert names_by_id == sorted(names_by_id)
+
+
+def test_rescan_keeps_file_ids(tmp_path: Path) -> None:
+    scan_root = tmp_path / "photos"
+    _make_ordering_folder(scan_root)
+    config = Config.model_validate({"scanner": {"max_workers": 4}})
+
+    asyncio.run(run_scan(scan_root, config))
+    first = _file_ids_by_name(scan_root)
+    asyncio.run(run_scan(scan_root, config))
+
+    assert _file_ids_by_name(scan_root) == first
+
+
 def test_scan_writes_thumbnails_named_by_file_id(tmp_path: Path) -> None:
     """Each ok file gets phaicull/thumbs/thumb_<id>.jpg (≤300px); broken files get none."""
     scan_root = tmp_path / "photos"

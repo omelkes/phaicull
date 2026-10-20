@@ -116,7 +116,7 @@ async def _process_files(
     summary: ScanSummary,
     thumbs_dir: Path,
 ) -> None:
-    """Dispatch files to Brawn workers and batch-write results."""
+    """Dispatch files to Brawn workers and batch-write results in input order."""
     analyzers = get_sprint1_analyzers()
     loop = asyncio.get_running_loop()
     max_workers = _resolve_max_workers(config, len(files))
@@ -138,9 +138,11 @@ async def _process_files(
         ) as executor:
             futures = [loop.run_in_executor(executor, worker_fn, fp) for fp in files]
 
+            # Write in discovery order, not completion order: new files get the
+            # same files.id (and thumb_<id>.jpg) regardless of worker count.
             pending = 0
-            for i, coro in enumerate(asyncio.as_completed(futures)):
-                result: FileResult = await coro
+            for i, future in enumerate(futures):
+                result: FileResult = await future
                 _write_result_to_db(conn, result, summary, thumbs_dir)
                 pending += 1
 

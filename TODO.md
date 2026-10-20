@@ -108,7 +108,7 @@
 Plan for this section: [`docs/plan/sprint1-cli-resilience.md`](docs/plan/sprint1-cli-resilience.md).
 
 - [x] **CLI scan command:** `phaicull scan <folder> [--config]` (positional folder; no `--folder` flag).
-- [ ] **Deterministic scan mode:** Fixed seeds, stable ordering.
+- [x] **Deterministic scan mode:** Results are written in sorted discovery order, so the same folder gets the same `files.id` / `thumb_<id>.jpg` for any worker count. Fixed seeds: none needed (no randomness in Sprint 1 analyzers or grouping).
 - [ ] **Error handling:** Gracefully skip unreadable/corrupted images and log reason.
 - [ ] **Interrupt handling:** Handle Ctrl+C to end scan gracefully, close DB connection, and write correct output to stdout/stderr.
 
