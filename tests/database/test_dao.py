@@ -144,6 +144,23 @@ def test_insert_file_can_set_new_group_id(tmp_path: Path) -> None:
         conn.close()
 
 
+def test_insert_file_status_reason_set_and_cleared(tmp_path: Path) -> None:
+    """status_reason is stored on failure and reset to NULL when the file loads again."""
+    conn = open_project_connection(tmp_path / "photos")
+    try:
+        fid = insert_file(
+            conn, "/photos/a.jpg", status="load_failed", status_reason="decode_failed"
+        )
+        row = conn.execute("SELECT status_reason FROM files WHERE id = ?", (fid,)).fetchone()
+        assert row["status_reason"] == "decode_failed"
+
+        insert_file(conn, "/photos/a.jpg", status="ok")
+        row = conn.execute("SELECT status_reason FROM files WHERE id = ?", (fid,)).fetchone()
+        assert row["status_reason"] is None
+    finally:
+        conn.close()
+
+
 # --- insert_metric ---
 
 

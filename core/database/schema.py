@@ -33,6 +33,7 @@ COL_FILE_ID = "id"
 COL_FILE_PATH = "file_path"
 COL_CONTENT_HASH = "content_hash"
 COL_STATUS = "status"
+COL_STATUS_REASON = "status_reason"  # 004; NULL unless status is load_failed
 COL_GROUP_ID = "group_id"
 COL_CREATED_AT = "created_at"
 COL_UPDATED_AT = "updated_at"

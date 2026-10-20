@@ -11,7 +11,9 @@ Designed to run in the Brawn process — no DB access, no asyncio.
 
 from __future__ import annotations
 
+from enum import StrEnum
 from pathlib import Path
+from typing import NamedTuple
 
 import numpy as np
 import pillow_heif
@@ -23,13 +25,36 @@ from core.utils.exif import auto_orient
 pillow_heif.register_heif_opener()
 
 
-def load_image(
+class LoadFailure(StrEnum):
+    """Why an image was not loaded. Values are stored in files.status_reason (stable)."""
+
+    UNREADABLE = "unreadable"
+    ZERO_BYTE = "zero_byte"
+    TOO_LARGE = "too_large"
+    CANNOT_OPEN = "cannot_open"
+    DIMENSIONS_TOO_LARGE = "dimensions_too_large"
+    DECODE_FAILED = "decode_failed"
+
+
+class LoadResult(NamedTuple):
+    """Decoded BGR image, or None with the failure reason."""
+
+    image: np.ndarray | None
+    failure: LoadFailure | None
+
+
+def _failed(reason: LoadFailure, path: Path) -> LoadResult:
+    logger.debug("Image not loaded ({}): {}", reason.value, path)
+    return LoadResult(None, reason)
+
+
+def try_load_image(
     path: Path,
     *,
     max_file_size_bytes: int,
     max_dimension: int,
-) -> np.ndarray | None:
-    """Load an image file safely, returning a BGR NumPy array or None on failure.
+) -> LoadResult:
+    """Load an image file safely, returning the BGR array or a failure reason.
 
     Steps:
     1. File size check (before any decode).
@@ -39,53 +64,36 @@ def load_image(
     5. EXIF auto-orientation.
     6. Convert to NumPy BGR array (OpenCV convention).
 
-    Returns None and logs on any failure or safety rejection.
+    Never raises for a bad file; every rejection maps to a LoadFailure.
     """
     path = Path(path).resolve()
 
     try:
         file_size = path.stat().st_size
     except OSError:
-        logger.warning("Cannot stat file: {}", path)
-        return None
+        return _failed(LoadFailure.UNREADABLE, path)
 
     if file_size == 0:
-        logger.debug("Zero-byte file skipped: {}", path)
-        return None
+        return _failed(LoadFailure.ZERO_BYTE, path)
 
     if file_size > max_file_size_bytes:
-        logger.warning(
-            "File too large ({:.1f} MB > {:.1f} MB limit): {}",
-            file_size / 1_048_576,
-            max_file_size_bytes / 1_048_576,
-            path,
-        )
-        return None
+        return _failed(LoadFailure.TOO_LARGE, path)
 
     try:
         img: Image.Image = Image.open(path)
     except Exception:
-        logger.debug("Pillow cannot open file: {}", path)
-        return None
+        return _failed(LoadFailure.CANNOT_OPEN, path)
 
     width, height = img.size
     if width > max_dimension or height > max_dimension:
-        logger.warning(
-            "Image dimensions too large ({}x{}, max {}): {}",
-            width,
-            height,
-            max_dimension,
-            path,
-        )
         img.close()
-        return None
+        return _failed(LoadFailure.DIMENSIONS_TOO_LARGE, path)
 
     try:
         img.load()
     except Exception:
-        logger.debug("Pillow cannot decode file: {}", path)
         img.close()
-        return None
+        return _failed(LoadFailure.DECODE_FAILED, path)
 
     img = auto_orient(img)
 
@@ -93,9 +101,20 @@ def load_image(
         rgb = img.convert("RGB")
         arr = np.array(rgb)
         bgr: np.ndarray = arr[:, :, ::-1].copy()
-        return bgr
+        return LoadResult(bgr, None)
     except Exception:
-        logger.debug("NumPy conversion failed: {}", path)
-        return None
+        return _failed(LoadFailure.DECODE_FAILED, path)
     finally:
         img.close()
+
+
+def load_image(
+    path: Path,
+    *,
+    max_file_size_bytes: int,
+    max_dimension: int,
+) -> np.ndarray | None:
+    """Load an image file safely, returning a BGR NumPy array or None on failure."""
+    return try_load_image(
+        path, max_file_size_bytes=max_file_size_bytes, max_dimension=max_dimension
+    ).image

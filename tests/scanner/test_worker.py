@@ -109,6 +109,7 @@ def test_process_corrupted_image(tmp_path: Path) -> None:
     )
 
     assert result.status == "load_failed"
+    assert result.status_reason is not None
     assert result.metrics == []
 
 
@@ -140,6 +141,7 @@ def test_process_zero_byte(tmp_path: Path) -> None:
     )
 
     assert result.status == "load_failed"
+    assert result.status_reason == "zero_byte"
 
 
 def test_file_result_has_absolute_path(tmp_path: Path) -> None:

@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-from core.loader.image_loader import load_image
+from core.loader.image_loader import LoadFailure, load_image, try_load_image
 
 MAX_FILE_SIZE = 10 * 1_048_576  # 10 MB for tests
 MAX_DIM = 5000
@@ -136,6 +136,62 @@ def test_nonexistent_file(tmp_path: Path) -> None:
     result = load_image(path, max_file_size_bytes=MAX_FILE_SIZE, max_dimension=MAX_DIM)
 
     assert result is None
+
+
+# --- Failure reasons (try_load_image) ---
+
+
+def _reason(
+    path: Path, *, max_size: int = MAX_FILE_SIZE, max_dim: int = MAX_DIM
+) -> LoadFailure | None:
+    result = try_load_image(path, max_file_size_bytes=max_size, max_dimension=max_dim)
+    assert (result.image is None) == (result.failure is not None)
+    return result.failure
+
+
+def test_reason_ok_is_none(tmp_path: Path) -> None:
+    path = tmp_path / "ok.png"
+    Image.new("RGB", (8, 8)).save(path, "PNG")
+    assert _reason(path) is None
+
+
+def test_reason_unreadable(tmp_path: Path) -> None:
+    assert _reason(tmp_path / "ghost.jpg") == LoadFailure.UNREADABLE
+
+
+def test_reason_zero_byte(tmp_path: Path) -> None:
+    path = tmp_path / "empty.jpg"
+    path.touch()
+    assert _reason(path) == LoadFailure.ZERO_BYTE
+
+
+def test_reason_too_large(tmp_path: Path) -> None:
+    path = tmp_path / "big.jpg"
+    Image.new("RGB", (100, 100)).save(path, "JPEG")
+    assert _reason(path, max_size=10) == LoadFailure.TOO_LARGE
+
+
+def test_reason_cannot_open(tmp_path: Path) -> None:
+    path = tmp_path / "readme.txt"
+    path.write_text("Hello world", encoding="utf-8")
+    assert _reason(path) == LoadFailure.CANNOT_OPEN
+
+
+def test_reason_dimensions_too_large(tmp_path: Path) -> None:
+    path = tmp_path / "wide.png"
+    Image.new("RGB", (200, 1)).save(path, "PNG")
+    assert _reason(path, max_dim=100) == LoadFailure.DIMENSIONS_TOO_LARGE
+
+
+def test_reason_decode_failed(tmp_path: Path) -> None:
+    """Header is intact (opens) but pixel data is cut off."""
+    good = tmp_path / "good.jpg"
+    noise = np.random.default_rng(0).integers(0, 256, (256, 256, 3), dtype=np.uint8)
+    Image.fromarray(noise).save(good, "JPEG")
+    data = good.read_bytes()
+    path = tmp_path / "truncated.jpg"
+    path.write_bytes(data[: len(data) // 2])
+    assert _reason(path) == LoadFailure.DECODE_FAILED
 
 
 # --- Edge cases ---

@@ -96,6 +96,46 @@ def test_scan_with_corrupted_image(tmp_path: Path) -> None:
         conn.close()
 
 
+def _status_reasons_by_name(scan_root: Path) -> dict[str, str | None]:
+    conn = open_project_connection(scan_root)
+    try:
+        rows = conn.execute("SELECT file_path, status_reason FROM files").fetchall()
+        return {Path(r["file_path"]).name: r["status_reason"] for r in rows}
+    finally:
+        conn.close()
+
+
+def test_scan_stores_load_failure_reason(tmp_path: Path) -> None:
+    """load_failed rows get a reason code; ok and MIME-rejected rows stay NULL."""
+    scan_root = tmp_path / "photos"
+    scan_root.mkdir()
+    Image.new("RGB", (4, 4)).save(scan_root / "good.jpg", "JPEG")
+    Image.new("RGB", (16, 16)).save(scan_root / "wide.png", "PNG")
+    (scan_root / "notes.txt").write_text("not a photo")
+    config = Config.model_validate({"loader": {"max_image_dimension": 8}})
+
+    summary = asyncio.run(run_scan(scan_root, config))
+
+    assert summary.load_failure_reasons == {"dimensions_too_large": 1}
+    reasons = _status_reasons_by_name(scan_root)
+    assert reasons == {"good.jpg": None, "wide.png": "dimensions_too_large", "notes.txt": None}
+
+
+def test_rescan_clears_reason_when_file_recovers(tmp_path: Path) -> None:
+    scan_root = tmp_path / "photos"
+    scan_root.mkdir()
+    photo = scan_root / "a.jpg"
+    photo.write_bytes(b"\xff\xd8\xff\xe0JUNK")
+    config = Config()
+
+    asyncio.run(run_scan(scan_root, config))
+    assert _status_reasons_by_name(scan_root)["a.jpg"] is not None
+
+    Image.new("RGB", (16, 16)).save(photo, "JPEG")
+    asyncio.run(run_scan(scan_root, config))
+    assert _status_reasons_by_name(scan_root)["a.jpg"] is None
+
+
 def test_scan_empty_directory(tmp_path: Path) -> None:
     """Empty directory produces zero-count summary without errors."""
     scan_root = tmp_path / "empty"

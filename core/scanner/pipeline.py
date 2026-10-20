@@ -39,6 +39,9 @@ class ScanSummary(BaseModel):
     total_discovered: int = 0
     processed: int = 0
     load_failed: int = 0
+    load_failure_reasons: dict[str, int] = Field(
+        default_factory=dict, description="load_failed count per files.status_reason."
+    )
     analyzer_errors: int = 0
     skipped_mime: int = Field(
         default=0, description="Files rejected by the MIME gate during discovery."
@@ -205,11 +208,14 @@ def _write_result_to_db(
         result.file_path,
         content_hash=result.content_hash,
         status=result.status,
+        status_reason=result.status_reason,
     )
     thumb_path = thumbs_dir / thumbnail_name(file_id)
 
     if result.status == "load_failed":
         summary.load_failed += 1
+        reason = result.status_reason or "unknown"
+        summary.load_failure_reasons[reason] = summary.load_failure_reasons.get(reason, 0) + 1
         thumb_path.unlink(missing_ok=True)  # do not keep showing a photo that no longer loads
         return
 

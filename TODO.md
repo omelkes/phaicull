@@ -109,7 +109,7 @@ Plan for this section: [`docs/plan/sprint1-cli-resilience.md`](docs/plan/sprint1
 
 - [x] **CLI scan command:** `phaicull scan <folder> [--config]` (positional folder; no `--folder` flag).
 - [x] **Deterministic scan mode:** Results are written in sorted discovery order, so the same folder gets the same `files.id` / `thumb_<id>.jpg` for any worker count. Fixed seeds: none needed (no randomness in Sprint 1 analyzers or grouping).
-- [ ] **Error handling:** Gracefully skip unreadable/corrupted images and log reason.
+- [x] **Error handling:** Unreadable/corrupted images are skipped (`status=load_failed`), the reason is logged (WARNING) and stored in `files.status_reason`; the CLI summary lists failures by reason. **Migration 004** adds the nullable column (additive; old rows read NULL). DEC-010.
 - [ ] **Interrupt handling:** Handle Ctrl+C to end scan gracefully, close DB connection, and write correct output to stdout/stderr.
 
 

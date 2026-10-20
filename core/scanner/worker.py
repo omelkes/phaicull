@@ -15,7 +15,7 @@ from loguru import logger
 from pydantic import BaseModel, Field
 
 from core.analyzers.base import AnalyzerResult, BaseAnalyzer
-from core.loader.image_loader import load_image
+from core.loader.image_loader import LoadFailure, try_load_image
 from core.utils.thumbnail import write_thumbnail
 
 
@@ -25,6 +25,9 @@ class FileResult(BaseModel):
     file_path: str
     content_hash: str | None = None
     status: str = "ok"
+    status_reason: str | None = Field(
+        default=None, description="LoadFailure code when status is load_failed."
+    )
     metrics: list[AnalyzerResult] = Field(default_factory=list)
     analyzer_errors: int = Field(
         default=0, description="Number of analyzers that raised on this file."
@@ -73,7 +76,7 @@ def process_file(
 
     result.content_hash = _compute_content_hash(file_path)
 
-    img = load_image(
+    img, failure = try_load_image(
         file_path,
         max_file_size_bytes=max_file_size_bytes,
         max_dimension=max_dimension,
@@ -81,7 +84,8 @@ def process_file(
 
     if img is None:
         result.status = "load_failed"
-        logger.debug("Image load failed: {}", file_path)
+        result.status_reason = (failure or LoadFailure.DECODE_FAILED).value
+        logger.warning("Skipped {} ({})", file_path, result.status_reason)
         return result
 
     for analyzer in analyzers:

@@ -67,3 +67,15 @@ def test_scan_with_config(tmp_path: Path) -> None:
     assert result.exit_code == 0
     assert "50.0 MB" in result.output
     assert "10000" in result.output
+
+
+def test_scan_reports_load_failure_reasons(tmp_path: Path) -> None:
+    """Load failures are listed with their reason codes."""
+    folder = tmp_path / "photos"
+    folder.mkdir()
+    (folder / "broken.jpg").write_bytes(b"\xff\xd8\xff\xe0JUNK")
+
+    result = runner.invoke(app, ["scan", str(folder)])
+
+    assert result.exit_code == 0
+    assert "Load failures: 1 (cannot_open: 1)" in result.output

@@ -346,3 +346,23 @@ is unchanged, otherwise wipe and rewrite in one transaction.
 - Group ids are ephemeral; membership is the contract.
 - `burst_window_seconds` stays in config, unused, to avoid a config-contract break.
 - No schema change: uses the existing `groups` table and `files.group_id`.
+
+---
+
+## DEC-010: Skip Reasons in `files.status_reason`
+
+**Status:** Decided  
+**Date:** 2026-10-11  
+**Scope:** migration 004, `insert_file(status_reason=)`, `core/loader/image_loader.py`
+(`LoadFailure`). Plan: [`plan/sprint1-cli-resilience.md`](plan/sprint1-cli-resilience.md).
+
+### Decision
+
+`status` stays `load_failed`; a new nullable column `files.status_reason` says why:
+`unreadable`, `zero_byte`, `too_large`, `cannot_open`, `dimensions_too_large`,
+`decode_failed`. It is NULL for every other status and reset to NULL when a file
+loads again. The worker also logs one WARNING per skipped file.
+
+- **Alternatives:** (A) log only; (B) new status values such as `load_failed_too_large`.
+- **Rationale:** UIs can explain each skipped photo. Additive and nullable, so older
+  consumers keep working; (B) would change the meaning of a stable field.
