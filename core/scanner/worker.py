@@ -8,6 +8,7 @@ and returns a FileResult. No DB access, no asyncio.
 from __future__ import annotations
 
 import hashlib
+import uuid
 from pathlib import Path
 
 from loguru import logger
@@ -15,6 +16,7 @@ from pydantic import BaseModel, Field
 
 from core.analyzers.base import AnalyzerResult, BaseAnalyzer
 from core.loader.image_loader import load_image
+from core.utils.thumbnail import write_thumbnail
 
 
 class FileResult(BaseModel):
@@ -26,6 +28,14 @@ class FileResult(BaseModel):
     metrics: list[AnalyzerResult] = Field(default_factory=list)
     analyzer_errors: int = Field(
         default=0, description="Number of analyzers that raised on this file."
+    )
+    staged_thumbnail: str | None = Field(
+        default=None,
+        description="Thumbnail written under a temporary name; Brain renames it to "
+        "thumb_<file_id>.jpg once the row id is known.",
+    )
+    thumbnail_failed: bool = Field(
+        default=False, description="Thumbnail generation was attempted and raised."
     )
 
 
@@ -47,11 +57,13 @@ def process_file(
     *,
     max_file_size_bytes: int,
     max_dimension: int,
+    thumbnail_staging_dir: Path | None = None,
 ) -> FileResult:
-    """Process a single image file: load, hash, analyze.
+    """Process a single image file: load, hash, analyze, thumbnail.
 
     The image is decoded exactly once; the resulting BGR array is passed to
-    every analyzer (BaseAnalyzer contract v2).
+    every analyzer (BaseAnalyzer contract v2) and, when thumbnail_staging_dir
+    is given, resized into a thumbnail under a unique temporary name.
 
     Designed to run in a subprocess via ProcessPoolExecutor.
     Never raises — all errors are captured in the returned FileResult.
@@ -82,5 +94,15 @@ def process_file(
             logger.debug(
                 "Analyzer {} failed on {}", analyzer.metric_name, file_path
             )
+
+    if thumbnail_staging_dir is not None:
+        staged = Path(thumbnail_staging_dir) / f"{uuid.uuid4().hex}.jpg"
+        try:
+            write_thumbnail(img, staged)
+            result.staged_thumbnail = str(staged)
+        except Exception:
+            result.thumbnail_failed = True
+            staged.unlink(missing_ok=True)
+            logger.debug("Thumbnail failed for {}", file_path)
 
     return result

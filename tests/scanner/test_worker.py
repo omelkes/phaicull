@@ -157,6 +157,69 @@ def test_file_result_has_absolute_path(tmp_path: Path) -> None:
     assert Path(result.file_path).is_absolute()
 
 
+def test_thumbnail_is_staged_from_decoded_image(tmp_path: Path) -> None:
+    """With a staging dir, the worker writes a 300px thumbnail under a temporary name."""
+    path = tmp_path / "wide.jpg"
+    Image.new("RGB", (900, 600), color=(10, 120, 200)).save(path, "JPEG")
+    staging = tmp_path / "staging"
+    staging.mkdir()
+
+    result = process_file(
+        path, [], max_file_size_bytes=MAX_SIZE, max_dimension=MAX_DIM,
+        thumbnail_staging_dir=staging,
+    )
+
+    assert not result.thumbnail_failed
+    assert result.staged_thumbnail is not None
+    staged = Path(result.staged_thumbnail)
+    assert staged.parent == staging
+    with Image.open(staged) as thumb:
+        assert thumb.size == (300, 200)
+
+
+def test_no_thumbnail_without_staging_dir(tmp_path: Path) -> None:
+    path = tmp_path / "img.jpg"
+    Image.new("RGB", (64, 64)).save(path, "JPEG")
+
+    result = process_file(path, [], max_file_size_bytes=MAX_SIZE, max_dimension=MAX_DIM)
+
+    assert result.staged_thumbnail is None
+    assert not result.thumbnail_failed
+
+
+def test_corrupted_file_gets_no_thumbnail(tmp_path: Path) -> None:
+    path = tmp_path / "bad.jpg"
+    path.write_bytes(b"\xff\xd8\xff\xe0JUNK")
+    staging = tmp_path / "staging"
+    staging.mkdir()
+
+    result = process_file(
+        path, [], max_file_size_bytes=MAX_SIZE, max_dimension=MAX_DIM,
+        thumbnail_staging_dir=staging,
+    )
+
+    assert result.status == "load_failed"
+    assert result.staged_thumbnail is None
+    assert list(staging.iterdir()) == []
+
+
+def test_thumbnail_failure_does_not_fail_the_file(tmp_path: Path) -> None:
+    """A thumbnail error is recorded; status and metrics are unaffected."""
+    path = tmp_path / "img.jpg"
+    Image.new("RGB", (64, 64)).save(path, "JPEG")
+    missing_dir = tmp_path / "does-not-exist"
+
+    result = process_file(
+        path, get_sprint1_analyzers(), max_file_size_bytes=MAX_SIZE, max_dimension=MAX_DIM,
+        thumbnail_staging_dir=missing_dir,
+    )
+
+    assert result.status == "ok"
+    assert result.thumbnail_failed
+    assert result.staged_thumbnail is None
+    assert len(result.metrics) == 4
+
+
 def test_process_with_no_analyzers(tmp_path: Path) -> None:
     """Processing with empty analyzer list still succeeds with status ok."""
     path = tmp_path / "img.png"

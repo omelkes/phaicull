@@ -253,6 +253,70 @@ def test_grouping_failure_keeps_metrics(
         conn.close()
 
 
+def _file_ids_by_name(scan_root: Path) -> dict[str, int]:
+    conn = open_project_connection(scan_root)
+    try:
+        rows = conn.execute("SELECT id, file_path FROM files").fetchall()
+        return {Path(r["file_path"]).name: r["id"] for r in rows}
+    finally:
+        conn.close()
+
+
+def test_scan_writes_thumbnails_named_by_file_id(tmp_path: Path) -> None:
+    """Each ok file gets phaicull/thumbs/thumb_<id>.jpg (≤300px); broken files get none."""
+    scan_root = tmp_path / "photos"
+    scan_root.mkdir()
+    Image.new("RGB", (1200, 800), color=(200, 30, 30)).save(scan_root / "big.jpg", "JPEG")
+    Image.new("RGB", (40, 30), color=(30, 200, 30)).save(scan_root / "small.png", "PNG")
+    (scan_root / "broken.jpg").write_bytes(b"\xff\xd8\xff\xe0JUNK")
+
+    summary = asyncio.run(run_scan(scan_root, Config()))
+
+    assert summary.thumbnails == 2
+    assert summary.thumbnail_errors == 0
+    thumbs = scan_root / "phaicull" / "thumbs"
+    ids = _file_ids_by_name(scan_root)
+    with Image.open(thumbs / f"thumb_{ids['big.jpg']}.jpg") as thumb:
+        assert thumb.size == (300, 200)
+    with Image.open(thumbs / f"thumb_{ids['small.png']}.jpg") as thumb:
+        assert thumb.size == (40, 30)
+    assert not (thumbs / f"thumb_{ids['broken.jpg']}.jpg").exists()
+    assert not (thumbs / ".staging").exists()
+
+
+def test_rescan_keeps_one_thumbnail_per_file(tmp_path: Path) -> None:
+    """Rescans overwrite thumb_<id>.jpg in place; no extra files accumulate."""
+    scan_root = tmp_path / "photos"
+    scan_root.mkdir()
+    Image.new("RGB", (500, 500)).save(scan_root / "a.jpg", "JPEG")
+    config = Config()
+
+    asyncio.run(run_scan(scan_root, config))
+    asyncio.run(run_scan(scan_root, config))
+
+    thumbs = scan_root / "phaicull" / "thumbs"
+    ids = _file_ids_by_name(scan_root)
+    assert sorted(p.name for p in thumbs.iterdir()) == [f"thumb_{ids['a.jpg']}.jpg"]
+
+
+def test_thumbnail_removed_when_file_stops_loading(tmp_path: Path) -> None:
+    """A photo that later becomes unreadable must not keep showing its old thumbnail."""
+    scan_root = tmp_path / "photos"
+    scan_root.mkdir()
+    photo = scan_root / "a.jpg"
+    Image.new("RGB", (500, 500)).save(photo, "JPEG")
+    config = Config()
+
+    asyncio.run(run_scan(scan_root, config))
+    thumb = scan_root / "phaicull" / "thumbs" / f"thumb_{_file_ids_by_name(scan_root)['a.jpg']}.jpg"
+    assert thumb.exists()
+
+    photo.write_bytes(b"\xff\xd8\xff\xe0JUNK")
+    asyncio.run(run_scan(scan_root, config))
+
+    assert not thumb.exists()
+
+
 def test_scan_ignores_own_phaicull_db(tmp_path: Path) -> None:
     """A rescan must not record the project's own phaicull/ data directory."""
     scan_root = tmp_path / "photos"
