@@ -107,7 +107,7 @@
 
 Plan for this section: [`docs/plan/sprint1-cli-resilience.md`](docs/plan/sprint1-cli-resilience.md).
 
-- [ ] **CLI scan command:** Create `cli.py scan --folder ~/Pictures`.
+- [x] **CLI scan command:** `phaicull scan <folder> [--config]` (positional folder; no `--folder` flag).
 - [ ] **Deterministic scan mode:** Fixed seeds, stable ordering.
 - [ ] **Error handling:** Gracefully skip unreadable/corrupted images and log reason.
 - [ ] **Interrupt handling:** Handle Ctrl+C to end scan gracefully, close DB connection, and write correct output to stdout/stderr.

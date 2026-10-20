@@ -98,7 +98,7 @@ Output streams: human summary on stdout (Rich), logs on stderr (loguru default).
 
 ## Atomic tasks (one commit each)
 
-- [ ] **C1. CLI command wording:** Mark "CLI scan command" done; fix `--folder` wording in TODO and `json_contract_scan_v1.md`. Docs only.
+- [x] **C1. CLI command wording:** Mark "CLI scan command" done; fix `--folder` wording in TODO and `json_contract_scan_v1.md`. Docs only.
 - [ ] **C2. Deterministic order:** Await results in submission order in `_process_files`. Tests: same folder scanned into two fresh DBs with `max_workers=1` and `max_workers=4` → identical `(id, file_path)` lists and thumbnail names; rescan keeps ids. Document "fixed seeds: none needed" in TODO.
 - [ ] **C3. Skip reasons:** Loader returns a reason code; `FileResult.status_reason`; migration 004 `files.status_reason TEXT NULL`; `insert_file(..., status_reason=None)`; cleared to NULL when a file loads again. Log reason at WARNING with path. CLI prints load failures grouped by reason. Tests: each reason code via loader; pipeline stores it; recovery clears it; migration test. Docs: JSON contract per-file `status_reason` (optional), schema docs.
 - [ ] **C4. Ctrl+C:** Worker initializer ignores SIGINT; pipeline catches `KeyboardInterrupt`/`CancelledError`, `executor.shutdown(cancel_futures=True)`, `conn.rollback()`, skips grouping, re-raises; CLI prints "Scan interrupted" to stderr, exit 130. Tests: interrupt after N results → committed batches kept, partial batch rolled back, no grouping, staging dir removed, CLI exit 130.
