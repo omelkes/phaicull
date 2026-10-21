@@ -1,6 +1,6 @@
 # PLAN — Sprint 1 §7: Verification
 
-**Status:** In progress — V1–V3 done; waiting for real benchmark photos (V4) (accepted 2026-10-20: verify script + generated photos now, real photos later; blur rule "worst 10")  
+**Status:** Done — all checks pass, 2026-10-21 (accepted 2026-10-20: verify script + generated photos now, real photos later; blur rule "worst 10")  
 **Branch:** `sprint1-verification`  
 **TODO:** Sprint 1 §7
 
@@ -51,7 +51,25 @@ Generated photos prove speed and stability. They only **indicate** blur ranking:
 - [x] **V1. DAO read:** `list_metric_values(conn, metric_name)` for `status='ok'` files. Tests.
 - [x] **V2. Verify script:** `generate` and `run`; pure check helpers unit-tested; docs (README).
 - [x] **V3. Results:** run on generated photos, record results here, update TODO.
-- [ ] **V4. Real benchmark:** rerun the blur check on real photos in `.local-photos/benchmark/`.
+- [x] **V4. Real benchmark:** rerun the blur check on real photos in `.local-photos/benchmark/`.
+
+---
+
+## Results — 2026-10-21 (final, real blur benchmark)
+
+Full run, exit 0: speed 168.2 s / 1000 photos (PASS), groups stable, 100 groups (PASS), blur worst 10 on real photos (PASS).
+
+Benchmark: 14 blurry (incl. one slight blur, one motion blur), 10 sharp, different scenes. The user's first sort mixed fault types: identical copies in both folders, and dark, overexposed, framing, finger and timing photos labelled as sharp or blurry. It was re-sorted by filename. Non-blur faults moved to `.local-photos/other-faults/` for future exposure checks; 4 identical copies dropped.
+
+| Rank | Score | Label |
+|---|---|---|
+| 1–10 | 0.387 – 0.607 | all blurry |
+| 11 | 0.629 | first sharp (`good`) |
+| — | 0.702 – 0.835 | 4 blurry photos above some sharp ones (busy scenes; one motion blur at 0.835) |
+
+Findings:
+- Laplacian variance mixes blur with scene texture, so busy blurry scenes outrank smooth sharp ones. `_VAR_LO`/`_VAR_HI` only rescale (monotonic) and cannot fix ranking; leave them. A better blur signal (local/edge-width measures or a learned model) belongs to Sprint 2+.
+- Scans never remove rows for moved/deleted files (logged in TODO). The verify script ignores rows whose file is gone.
 
 ---
 

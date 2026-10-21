@@ -118,10 +118,10 @@ Plan for this section: [`docs/plan/sprint1-cli-resilience.md`](docs/plan/sprint1
 
 Plan for this section: [`docs/plan/sprint1-verification.md`](docs/plan/sprint1-verification.md).
 
-- [ ] **Sprint 1 success check** — `scripts/verify_sprint1.py run` (2026-10-20, 6 CPUs, 1000 generated 12 MP JPEGs):
-  - [x] Scan 1k photos < 5 minutes — 172.5 s.
+- [x] **Sprint 1 success check** — `scripts/verify_sprint1.py run` (final run 2026-10-21, exit 0, 6 CPUs; details in the plan):
+  - [x] Scan 1k photos < 5 minutes — 168.2 s for 1000 generated 12 MP JPEGs.
   - [x] Duplicate groups are stable across runs — 100 groups, identical membership in both scans (all 100 planted near-duplicates found).
-  - [ ] Blur ranking correctly surfaces worst 10 images in the Benchmark Set — **passed on synthetic blur** (10/10; max blurry 0.296, min sharp 0.421). Still needs the real run: put ≥ 10 photos in `.local-photos/benchmark/blurry/` and some in `sharp/`, then `run --benchmark .local-photos/benchmark`. If it fails, tune `_VAR_LO`/`_VAR_HI` in `core/analyzers/blur.py`.
+  - [x] Blur ranking correctly surfaces worst 10 images in the Benchmark Set — real photos (14 blurry, 10 sharp): 10/10. Separation is not perfect: 3 blurry photos and 1 motion-blur photo of busy scenes score above some sharp ones (Laplacian variance depends on scene content) → Sprint 2+ blur model.
 
 
 
