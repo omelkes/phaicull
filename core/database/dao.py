@@ -132,6 +132,37 @@ def insert_metric(
     )
 
 
+class MetricValue(NamedTuple):
+    """One status=ok file and its value for a metric (None if missing)."""
+
+    file_id: int
+    file_path: str
+    value_real: float | None
+
+
+def list_metric_values(conn: sqlite3.Connection, metric_name: str) -> list[MetricValue]:
+    """Return every status=ok file with its value_real for metric_name, ordered by id."""
+    cursor = conn.execute(
+        """
+        SELECT f.id, f.file_path, m.value_real
+        FROM files AS f
+        LEFT JOIN metrics AS m
+            ON m.file_id = f.id AND m.metric_name = ?
+        WHERE f.status = 'ok'
+        ORDER BY f.id
+        """,
+        (metric_name,),
+    )
+    return [
+        MetricValue(
+            file_id=int(row[0]),
+            file_path=str(row[1]),
+            value_real=None if row[2] is None else float(row[2]),
+        )
+        for row in cursor.fetchall()
+    ]
+
+
 # --- Project DB: groups ---
 
 

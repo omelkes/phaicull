@@ -116,10 +116,12 @@ Plan for this section: [`docs/plan/sprint1-cli-resilience.md`](docs/plan/sprint1
 
 ### 7. Verification
 
-- [ ] **Sprint 1 success check:**
-  - Scan 1k photos < 5 minutes.
-  - Blur ranking correctly surfaces worst 10 images in the Benchmark Set.
-  - Duplicate groups are stable across runs.
+Plan for this section: [`docs/plan/sprint1-verification.md`](docs/plan/sprint1-verification.md).
+
+- [x] **Sprint 1 success check** — `scripts/verify_sprint1.py run` (final run 2026-10-21, exit 0, 6 CPUs; details in the plan):
+  - [x] Scan 1k photos < 5 minutes — 168.2 s for 1000 generated 12 MP JPEGs.
+  - [x] Duplicate groups are stable across runs — 100 groups, identical membership in both scans (all 100 planted near-duplicates found).
+  - [x] Blur ranking correctly surfaces worst 10 images in the Benchmark Set — real photos (14 blurry, 10 sharp): 10/10. Separation is not perfect: 3 blurry photos and 1 motion-blur photo of busy scenes score above some sharp ones (Laplacian variance depends on scene content) → Sprint 2+ blur model.
 
 
 
@@ -199,6 +201,7 @@ Try and decide the best result
 
 - [ ] Keep TODO aligned with actual code structure. Detailed plans live in `[docs/plan/](docs/plan/README.md)`; TODO stays a checklist.
 - [ ] Move completed tasks into CHANGELOG or release notes
+- [ ] **Rows for moved/deleted files are never removed:** a rescan keeps `files` rows (status `ok`, metrics, groups, thumbnails) for files no longer on disk, so they still show up as photos. Needs a "missing" status or pruning step (schema/contract decision). Found 2026-10-21 (Sprint 1 verification, after re-sorting the benchmark).
 - [ ] **Orphan thumbnails after a hard kill:** a SIGKILL between thumbnail rename and batch commit can leave `thumb_<id>.jpg` with no row (upsert advances AUTOINCREMENT, so the id is not reliably reused). Consider sweeping `thumbs/` for ids not in `files` at scan start. Found 2026-10-11 (Sprint 1 §6).
 - [ ] **Schema pragmatism:** start denormalized, refactor after Sprints if needed
 - [x] Fix `schema_version` numeric ordering bug in migrations (TEXT vs integer ordering)

@@ -38,6 +38,17 @@ Phaicull uses a multi-layered approach to analyze your library:
 **Supported image formats:** JPEG, PNG, HEIC/HEIF (iPhone), GIF, WebP. Files are
 validated by magic bytes, not extension; anything else is recorded as skipped.
 
+**Sprint 1 verification** (speed, blur ranking, grouping stability; pass rules in
+[`docs/plan/sprint1-verification.md`](docs/plan/sprint1-verification.md)):
+
+```bash
+uv run python scripts/verify_sprint1.py generate          # ~2 GB of 12 MP test photos in .local-photos/synthetic/
+uv run python scripts/verify_sprint1.py run --photos .local-photos/synthetic/photos \
+    --benchmark .local-photos/benchmark                   # real blurry/ + sharp/ photos (≥ 10 blurry)
+```
+
+Exit code 0 = all passed, 1 = a check failed, 2 = a check could not run (not enough photos).
+
 **Test directories:**
 - `tests/fixtures/images/` — committed basic images for unit tests (CI, contributors)
 - `.local-photos/` — gitignored directory for real photo testing and model training (never committed)

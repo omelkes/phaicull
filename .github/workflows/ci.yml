@@ -23,7 +23,7 @@ jobs:
         run: uv sync --dev
 
       - name: Lint (ruff)
-        run: uv run ruff check core tests
+        run: uv run ruff check core tests scripts
 
       - name: Type check (mypy)
         run: uv run mypy
