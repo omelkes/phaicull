@@ -201,6 +201,7 @@ Try and decide the best result
 
 - [ ] Keep TODO aligned with actual code structure. Detailed plans live in `[docs/plan/](docs/plan/README.md)`; TODO stays a checklist.
 - [ ] Move completed tasks into CHANGELOG or release notes
+- [ ] **Rows for moved/deleted files are never removed:** a rescan keeps `files` rows (status `ok`, metrics, groups, thumbnails) for files no longer on disk, so they still show up as photos. Needs a "missing" status or pruning step (schema/contract decision). Found 2026-10-21 (Sprint 1 verification, after re-sorting the benchmark).
 - [ ] **Orphan thumbnails after a hard kill:** a SIGKILL between thumbnail rename and batch commit can leave `thumb_<id>.jpg` with no row (upsert advances AUTOINCREMENT, so the id is not reliably reused). Consider sweeping `thumbs/` for ids not in `files` at scan start. Found 2026-10-11 (Sprint 1 §6).
 - [ ] **Schema pragmatism:** start denormalized, refactor after Sprints if needed
 - [x] Fix `schema_version` numeric ordering bug in migrations (TEXT vs integer ordering)

@@ -291,6 +291,7 @@ def _blur_entries(benchmark: Path) -> list[BlurEntry]:
     return [
         BlurEntry(Path(r.file_path).name, label_for(Path(r.file_path), benchmark), r.value_real)
         for r in rows
+        if Path(r.file_path).exists()  # scans keep rows for moved/deleted files
     ]
 
 
